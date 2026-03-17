@@ -24,7 +24,6 @@ local TextService = game:GetService("TextService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer and LocalPlayer:GetMouse() or nil
 
-local ProtectGui = protectgui or (syn and syn.protect_gui) or function() end
 local isfolder = isfolder or function() return false end
 local makefolder = makefolder or function() end
 local isfile = isfile or function() return false end
@@ -36,6 +35,10 @@ local listfiles = listfiles or function() return {} end
 -- ══════════════════════════════════════════════════════════════
 -- 2. UTILITY HELPERS
 -- ══════════════════════════════════════════════════════════════
+
+-- [ CORREÇÃO DE ESCOPO ]: Declarando variáveis globalmente primeiro
+local ThemeManager 
+local AnimManager
 
 local Utility = {}
 
@@ -167,7 +170,7 @@ end
 -- 3. THEME MANAGER
 -- ══════════════════════════════════════════════════════════════
 
-local ThemeManager = {
+ThemeManager = {
     Themes = {
         Midnight = {
             Background    = Color3.fromRGB(26, 26, 30),
@@ -298,7 +301,7 @@ end
 -- 4. ANIMATION MANAGER
 -- ══════════════════════════════════════════════════════════════
 
-local AnimManager = {
+AnimManager = {
     ReducedMotion = false,
     CompactMode = false,
     UIScale = 1,
@@ -480,10 +483,21 @@ function Library:CreateWindow(Settings)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false,
     })
-    pcall(function() ProtectGui(GUI) end)
-    GUI.Parent = CoreGui
 
-    -- Scale support
+    -- [ CORREÇÃO ]: Lógica híbrida para rodar em Studio e Executors
+    local success = pcall(function()
+        if protectgui then
+            protectgui(GUI)
+        elseif syn and syn.protect_gui then
+            syn.protect_gui(GUI)
+        end
+        GUI.Parent = CoreGui
+    end)
+    
+    if not success then
+        GUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
     if AnimManager.UIScale ~= 1 then
         Utility:Create("UIScale", {Scale = AnimManager.UIScale, Parent = GUI})
     end
@@ -1269,7 +1283,7 @@ function Library:CreateWindow(Settings)
         table.insert(Window.Tabs, Tab)
 
         -- ═══════════════════════════════════════════════════════
-        -- ELEMENT FACTORY (all Create* methods on Tab)
+        -- ELEMENT FACTORY
         -- ═══════════════════════════════════════════════════════
 
         local _elOrder = 0
@@ -1516,7 +1530,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- IconButton
         function Tab:CreateIconButton(cfg)
             cfg = cfg or {}
             cfg.Name = cfg.Name or "Action"
@@ -1603,7 +1616,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Switch (alias for Toggle with different visual)
         Tab.CreateSwitch = Tab.CreateToggle
 
         -- Slider
@@ -1734,7 +1746,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- StepSlider
         function Tab:CreateStepSlider(cfg)
             cfg = cfg or {}
             cfg.Decimals = 0
@@ -1818,7 +1829,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Textbox (multiline-style)
         function Tab:CreateTextbox(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or Utility:UUID()
@@ -1889,7 +1899,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- NumberInput
         function Tab:CreateNumberInput(cfg)
             cfg = cfg or {}
             local orig = cfg.Callback
@@ -2235,7 +2244,6 @@ function Library:CreateWindow(Settings)
         -- ADVANCED ELEMENTS
         -- ═══════════════════════════════════════════════════════
 
-        -- ColorPicker
         function Tab:CreateColorPicker(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or Utility:UUID()
@@ -2288,7 +2296,6 @@ function Library:CreateWindow(Settings)
             function obj:SetVisible(v) f.Visible = v end
             function obj:Destroy() f:Destroy() end
 
-            -- Click to open a simple R/G/B modal picker
             local previewBtn = Utility:Create("TextButton", {
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
@@ -2392,7 +2399,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Keybind
         function Tab:CreateKeybind(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or Utility:UUID()
@@ -2463,7 +2469,6 @@ function Library:CreateWindow(Settings)
                 end)
             end)
 
-            -- Fire callback on key press
             UserInputService.InputBegan:Connect(function(input, gpe)
                 if gpe or listening then return end
                 if input.KeyCode == obj.Value and obj.Value ~= Enum.KeyCode.Unknown then
@@ -2479,7 +2484,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- ProgressBar
         function Tab:CreateProgressBar(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2543,7 +2547,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Card
         function Tab:CreateCard(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2592,7 +2595,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Stat
         function Tab:CreateStat(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2644,7 +2646,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- StatusBox helper
         local function createStatusBox(tab, cfg, colorKey, prefix)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2689,7 +2690,6 @@ function Library:CreateWindow(Settings)
         function Tab:CreateErrorBox(cfg) return createStatusBox(self, cfg, "Danger", "✕") end
         function Tab:CreateSuccessBox(cfg) return createStatusBox(self, cfg, "Success", "✓") end
 
-        -- Badge
         function Tab:CreateBadge(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2732,12 +2732,10 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Chip
         function Tab:CreateChip(cfg)
             return Tab:CreateBadge(cfg)
         end
 
-        -- CodeBlock
         function Tab:CreateCodeBlock(cfg)
             cfg = cfg or {}
             local code = cfg.Code or cfg.Content or ""
@@ -2796,7 +2794,6 @@ function Library:CreateWindow(Settings)
             local obj = {}
             function obj:SetCode(c)
                 code = c
-                -- Simplified: just update text
                 for _, ch in ipairs(scroll:GetChildren()) do
                     if ch:IsA("TextLabel") then ch.Text = c end
                 end
@@ -2806,7 +2803,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Image
         function Tab:CreateImage(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2834,13 +2830,11 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Tooltip (hover info helper)
         function Tab:CreateTooltip(cfg)
             cfg = cfg or {}
             return Tab:CreateLabel("ℹ " .. (cfg.Text or cfg.Content or ""))
         end
 
-        -- Groupbox
         function Tab:CreateGroupbox(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -2887,7 +2881,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Collapsible
         function Tab:CreateCollapsible(cfg)
             cfg = cfg or {}
             local isOpen = cfg.Default ~= false
@@ -2979,7 +2972,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- Search (element filter)
         function Tab:CreateSearch(cfg)
             cfg = cfg or {}
             local f = Utility:Create("Frame", {
@@ -3040,7 +3032,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- CommandBar
         function Tab:CreateCommandBar(cfg)
             cfg = cfg or {}
             local commands = cfg.Commands or {}
@@ -3098,7 +3089,6 @@ function Library:CreateWindow(Settings)
             return obj
         end
 
-        -- DashboardStats (grid of stat cards, legacy compat)
         function Tab:CreateDashboardStats(stats)
             local grid = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 70),
@@ -3292,7 +3282,6 @@ function Library:CreateWindow(Settings)
         return tab
     end
 
-    -- Auto-load default profile if configured
     if Settings.AutoLoad then
         task.defer(function()
             SaveManager:Load(SaveManager.DefaultProfile)
