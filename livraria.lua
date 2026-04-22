@@ -757,15 +757,149 @@ function Library:CreateWindow(Settings)
         end)
     end
 
-    local function applyMainTransparency(target, time)
-        for _, obj in ipairs(MainFrame:GetDescendants()) do
-            if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                Utility:Tween(obj, { TextTransparency = target }, time or 0.2)
-            elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                Utility:Tween(obj, { ImageTransparency = target }, time or 0.2)
-            elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                Utility:Tween(obj, { BackgroundTransparency = math.clamp(target + 0.02, 0, 1) }, time or 0.2)
+    local MiniBar = Utility:Create("Frame", {
+        Name = "MiniBar",
+        Size = UDim2.fromOffset(320, 34),
+        Position = UDim2.new(0.5, -160, 0.5, -120),
+        Visible = false,
+        Theme = { BackgroundColor3 = "Background" },
+        ZIndex = 700,
+        Parent = GUI
+    })
+    Utility:ApplyCorner(MiniBar, 6)
+    Utility:ApplyStroke(MiniBar, "Border", 1)
+    Utility:AddShadow(MiniBar, 0.48)
+    Utility:MakeDraggable(MiniBar, MiniBar)
+
+    local MiniTitle = Utility:Create("TextLabel", {
+        Size = UDim2.new(1, -90, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = string.upper(Name),
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Theme = { TextColor3 = "Text" },
+        ZIndex = 701,
+        Parent = MiniBar
+    })
+
+    local MiniButtons = Utility:Create("Frame", {
+        Size = UDim2.new(0, 80, 1, 0),
+        Position = UDim2.new(1, -84, 0, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 701,
+        Parent = MiniBar
+    })
+    Utility:Create("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 6),
+        Parent = MiniButtons
+    })
+
+    local MiniMaxButton = Utility:Create("TextButton", {
+        Size = UDim2.new(0, 34, 0, 24),
+        Text = "+",
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        Theme = { TextColor3 = "Text", BackgroundColor3 = "Panel" },
+        AutoButtonColor = false,
+        ZIndex = 702,
+        Parent = MiniButtons
+    })
+    Utility:ApplyCorner(MiniMaxButton, 5)
+    Utility:ApplyStroke(MiniMaxButton, "Border", 1)
+
+    local MiniCloseButton = Utility:Create("TextButton", {
+        Size = UDim2.new(0, 34, 0, 24),
+        Text = "X",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        Theme = { TextColor3 = "Text", BackgroundColor3 = "Panel" },
+        AutoButtonColor = false,
+        ZIndex = 702,
+        Parent = MiniButtons
+    })
+    Utility:ApplyCorner(MiniCloseButton, 5)
+    Utility:ApplyStroke(MiniCloseButton, "Border", 1)
+
+    Window.IsMinimized = false
+
+    function Window:Minimize(silent)
+        if self.IsDestroyed or self.IsMinimized then
+            return
+        end
+        self.SavedOpenSize = MainFrame.Size
+        self.SavedOpenPosition = MainFrame.Position
+        self.IsMinimized = true
+        self.IsToggled = false
+
+        local miniWidth = math.clamp(math.floor(MainFrame.Size.X.Offset * 0.45), 260, 420)
+        MiniBar.Size = UDim2.fromOffset(miniWidth, 34)
+        MiniBar.Position = UDim2.new(
+            MainFrame.Position.X.Scale,
+            MainFrame.Position.X.Offset,
+            MainFrame.Position.Y.Scale,
+            MainFrame.Position.Y.Offset
+        )
+        MiniBar.Visible = true
+        MiniBar.BackgroundTransparency = 0.18
+        Utility:Tween(MiniBar, { BackgroundTransparency = 0 }, 0.16)
+        Utility:Tween(MainFrame, {
+            Size = UDim2.fromOffset(math.max(300, math.floor(MainFrame.Size.X.Offset * 0.78)), 42),
+            BackgroundTransparency = 0.3
+        }, 0.16)
+        task.delay(0.16, function()
+            if MainFrame and MainFrame.Parent then
+                MainFrame.Visible = false
+                MainFrame.BackgroundTransparency = 0
             end
+        end)
+
+        if not silent then
+            self:Notify({
+                Title = "Script Hidden",
+                Content = "To open the script again, press " .. keyToText(self.ToggleKey) .. ".",
+                Duration = 3.2
+            })
+        end
+    end
+
+    function Window:Restore(silent)
+        if self.IsDestroyed or not self.IsMinimized then
+            return
+        end
+        self.IsMinimized = false
+        self.IsToggled = true
+
+        MainFrame.Visible = true
+        MainFrame.Position = self.SavedOpenPosition or MainFrame.Position
+        MainFrame.Size = UDim2.fromOffset(
+            math.max(420, math.floor((self.SavedOpenSize and self.SavedOpenSize.X.Offset or defaultW) * 0.86)),
+            56
+        )
+        MainFrame.BackgroundTransparency = 0.18
+        Utility:Tween(MainFrame, {
+            Size = self.SavedOpenSize or UDim2.fromOffset(defaultW, defaultH),
+            BackgroundTransparency = 0
+        }, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+        Utility:Tween(MiniBar, { BackgroundTransparency = 1 }, 0.14)
+        task.delay(0.14, function()
+            if MiniBar and MiniBar.Parent then
+                MiniBar.Visible = false
+                MiniBar.BackgroundTransparency = 0
+            end
+        end)
+
+        if not silent then
+            self:Notify({
+                Title = "Window Opened",
+                Content = "UI restored. Press " .. keyToText(self.ToggleKey) .. " to hide again.",
+                Duration = 2.5
+            })
         end
     end
 
@@ -826,51 +960,14 @@ function Library:CreateWindow(Settings)
         if target == nil then
             target = not self.IsToggled
         end
-        if target == self.IsToggled then
+        if target == self.IsToggled and ((target and not self.IsMinimized) or (not target and self.IsMinimized)) then
             return
         end
 
         if target then
-            MainFrame.Visible = true
-            MainFrame.ClipsDescendants = true
-            MainFrame.Size = UDim2.fromOffset(math.max(420, math.floor(self.SavedOpenSize.X.Offset * 0.92)), math.max(120, math.floor(self.SavedOpenSize.Y.Offset * 0.65)))
-            MainFrame.BackgroundTransparency = 0.12
-            applyMainTransparency(1, 0.01)
-            Utility:Tween(MainFrame, { Size = self.SavedOpenSize, BackgroundTransparency = 0 }, 0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            task.delay(0.06, function()
-                if MainFrame and MainFrame.Parent then
-                    applyMainTransparency(0, 0.2)
-                end
-            end)
-            self.IsToggled = true
-            if not silent then
-                self:Notify({
-                    Title = "Window Opened",
-                    Content = "UI restored. Press " .. keyToText(self.ToggleKey) .. " to hide again.",
-                    Duration = 2.5
-                })
-            end
+            self:Restore(silent)
         else
-            self.SavedOpenSize = MainFrame.Size
-            applyMainTransparency(1, 0.16)
-            Utility:Tween(MainFrame, {
-                Size = UDim2.fromOffset(math.max(380, math.floor(self.SavedOpenSize.X.Offset * 0.92)), 70),
-                BackgroundTransparency = 0.25
-            }, 0.2)
-            task.delay(0.21, function()
-                if MainFrame and MainFrame.Parent then
-                    MainFrame.Visible = false
-                    MainFrame.BackgroundTransparency = 0
-                end
-            end)
-            self.IsToggled = false
-            if not silent then
-                self:Notify({
-                    Title = "Script Hidden",
-                    Content = "To open the script again, press " .. keyToText(self.ToggleKey) .. ".",
-                    Duration = 3.2
-                })
-            end
+            self:Minimize(silent)
         end
     end
 
@@ -910,10 +1007,16 @@ function Library:CreateWindow(Settings)
     end))
 
     track(MinButton.MouseButton1Click:Connect(function()
-        Window:HideWithPrompt()
+        Window:Minimize(false)
     end))
     track(CloseButton.MouseButton1Click:Connect(function()
-        Window:HideWithPrompt()
+        Window:Destroy()
+    end))
+    track(MiniMaxButton.MouseButton1Click:Connect(function()
+        Window:Restore(false)
+    end))
+    track(MiniCloseButton.MouseButton1Click:Connect(function()
+        Window:Destroy()
     end))
 
     function Window:FinishLoading()
@@ -1477,6 +1580,7 @@ function Library:CreateWindow(Settings)
                 Size = UDim2.new(1, -200, 0, 30),
                 Position = UDim2.new(0, 190, 0.5, -15),
                 Theme = { BackgroundColor3 = "Background" },
+                ZIndex = 20,
                 Parent = holder
             })
             Utility:ApplyCorner(selectorBg, 4)
@@ -1486,6 +1590,7 @@ function Library:CreateWindow(Settings)
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
                 Text = "",
+                ZIndex = 21,
                 Parent = selectorBg
             })
 
@@ -1498,6 +1603,7 @@ function Library:CreateWindow(Settings)
                 TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
+                ZIndex = 22,
                 Parent = selectorBg
             })
 
@@ -1510,15 +1616,22 @@ function Library:CreateWindow(Settings)
                 TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Center,
                 Theme = { TextColor3 = "TextDark" },
+                ZIndex = 22,
                 Parent = selectorBg
             })
 
-            local listFrame = Utility:Create("Frame", {
+            local listFrame = Utility:Create("ScrollingFrame", {
                 Size = UDim2.new(1, -200, 0, 0),
                 Position = UDim2.new(0, 190, 1, -2),
                 ClipsDescendants = true,
-                Theme = { BackgroundColor3 = "Panel" },
                 Visible = false,
+                ScrollBarThickness = 2,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                Theme = {
+                    BackgroundColor3 = "Panel",
+                    ScrollBarImageColor3 = "BorderHighlight"
+                },
+                ZIndex = 120,
                 Parent = holder
             })
             Utility:ApplyCorner(listFrame, 4)
@@ -1528,6 +1641,9 @@ function Library:CreateWindow(Settings)
                 SortOrder = Enum.SortOrder.LayoutOrder,
                 Parent = listFrame
             })
+            listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                listFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 8)
+            end)
             Utility:Create("UIPadding", {
                 PaddingTop = UDim.new(0, 4),
                 PaddingBottom = UDim.new(0, 4),
@@ -1540,7 +1656,9 @@ function Library:CreateWindow(Settings)
             local dropdownObj = { Value = default }
 
             local function refreshHolderHeight()
-                local target = opened and math.min(180, (listLayout.AbsoluteContentSize.Y + 12)) or 0
+                local expected = (listLayout.AbsoluteContentSize.Y > 0 and (listLayout.AbsoluteContentSize.Y + 12))
+                    or (math.max(1, #options) * 27 + 10)
+                local target = opened and math.min(180, expected) or 0
                 Utility:Tween(listFrame, { Size = UDim2.new(1, -200, 0, target) }, 0.16)
                 Utility:Tween(holder, { Size = UDim2.new(1, 0, 0, opened and (45 + target + 6) or 45) }, 0.16)
             end
@@ -1573,11 +1691,13 @@ function Library:CreateWindow(Settings)
                         Size = UDim2.new(1, 0, 0, 24),
                         BackgroundTransparency = 1,
                         Text = "",
+                        ZIndex = 122,
                         Parent = listFrame
                     })
                     local bg = Utility:Create("Frame", {
                         Size = UDim2.new(1, 0, 1, 0),
                         Theme = { BackgroundColor3 = "Background" },
+                        ZIndex = 123,
                         Parent = item
                     })
                     Utility:ApplyCorner(bg, 4)
@@ -1589,7 +1709,8 @@ function Library:CreateWindow(Settings)
                         Font = Enum.Font.GothamMedium,
                         TextSize = 10,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        Theme = { TextColor3 = "TextDark" },
+                        Theme = { TextColor3 = "Text" },
+                        ZIndex = 124,
                         Parent = bg
                     })
                     item.MouseEnter:Connect(function()
