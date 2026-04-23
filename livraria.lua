@@ -825,6 +825,107 @@ function Library:CreateWindow(Settings)
     Utility:ApplyCorner(MiniCloseButton, 5)
     Utility:ApplyStroke(MiniCloseButton, "Border", 1)
 
+    local ActionBar = Utility:Create("Frame", {
+        Name = "AttachedActionBar",
+        Size = UDim2.fromOffset(520, 38),
+        Position = UDim2.new(0.5, -260, 0.5, defaultH / 2 + 10),
+        Visible = false,
+        BackgroundTransparency = 1,
+        Theme = { BackgroundColor3 = "Background" },
+        ZIndex = 780,
+        Parent = GUI
+    })
+    Utility:ApplyCorner(ActionBar, 8)
+    Utility:ApplyStroke(ActionBar, "Border", 1)
+    Utility:AddShadow(ActionBar, 0.5)
+
+    local ActionBarText = Utility:Create("TextLabel", {
+        Size = UDim2.new(1, -122, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Font = Enum.Font.GothamMedium,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Theme = { TextColor3 = "Text" },
+        ZIndex = 781,
+        Parent = ActionBar
+    })
+
+    local ActionBarButton = Utility:Create("TextButton", {
+        Size = UDim2.fromOffset(92, 26),
+        Position = UDim2.new(1, -104, 0.5, -13),
+        Text = "Cancel",
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        AutoButtonColor = false,
+        Theme = { BackgroundColor3 = "Accent" },
+        TextColor3 = Color3.fromRGB(0, 0, 0),
+        ZIndex = 781,
+        Parent = ActionBar
+    })
+    Utility:ApplyCorner(ActionBarButton, 6)
+    Utility:ApplyStroke(ActionBarButton, "Accent", 1)
+
+    local actionBarCallback = nil
+    local function updateActionBarPosition()
+        if not ActionBar or not ActionBar.Parent then
+            return
+        end
+        local width = math.clamp(math.floor(MainFrame.Size.X.Offset - 44), 340, 640)
+        ActionBar.Size = UDim2.fromOffset(width, 38)
+        ActionBar.Position = UDim2.new(
+            MainFrame.Position.X.Scale,
+            MainFrame.Position.X.Offset + math.floor((MainFrame.Size.X.Offset - width) / 2),
+            MainFrame.Position.Y.Scale,
+            MainFrame.Position.Y.Offset + MainFrame.Size.Y.Offset + 9
+        )
+    end
+
+    function Window:ShowActionBar(config)
+        config = config or {}
+        if self.IsDestroyed then
+            return
+        end
+        actionBarCallback = type(config.Callback) == "function" and config.Callback or nil
+        ActionBarText.Text = tostring(config.Text or config.Content or "If you want to cancel active auto rejoin, click here.")
+        ActionBarButton.Text = tostring(config.ButtonText or "Cancel")
+        updateActionBarPosition()
+        local targetPosition = ActionBar.Position
+        ActionBar.Visible = true
+        ActionBar.BackgroundTransparency = 1
+        ActionBar.Position = UDim2.new(targetPosition.X.Scale, targetPosition.X.Offset, targetPosition.Y.Scale, targetPosition.Y.Offset + 8)
+        Utility:Tween(ActionBar, { BackgroundTransparency = 0 }, 0.18)
+        Utility:Tween(ActionBar, { Position = targetPosition }, 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    end
+
+    function Window:HideActionBar()
+        if not ActionBar or not ActionBar.Parent then
+            return
+        end
+        actionBarCallback = nil
+        Utility:Tween(ActionBar, { BackgroundTransparency = 1 }, 0.14)
+        task.delay(0.15, function()
+            if ActionBar and ActionBar.Parent then
+                ActionBar.Visible = false
+            end
+        end)
+    end
+
+    track(ActionBarButton.MouseButton1Click:Connect(function()
+        Utility:Tween(ActionBarButton, { BackgroundTransparency = 0.18 }, 0.08)
+        task.delay(0.08, function()
+            if ActionBarButton and ActionBarButton.Parent then
+                Utility:Tween(ActionBarButton, { BackgroundTransparency = 0 }, 0.12)
+            end
+        end)
+        if actionBarCallback then
+            actionBarCallback()
+        end
+    end))
+    track(MainFrame:GetPropertyChangedSignal("Position"):Connect(updateActionBarPosition))
+    track(MainFrame:GetPropertyChangedSignal("Size"):Connect(updateActionBarPosition))
+
     function Window:Confirm(config)
         config = config or {}
         if self.IsDestroyed then
@@ -943,7 +1044,8 @@ function Library:CreateWindow(Settings)
             Font = Enum.Font.GothamBold,
             TextSize = 11,
             AutoButtonColor = false,
-            Theme = { BackgroundColor3 = "Accent", TextColor3 = "Text" },
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            Theme = { BackgroundColor3 = "Accent" },
             ZIndex = 2603,
             Parent = buttonRow
         })
