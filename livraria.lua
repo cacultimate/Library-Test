@@ -825,6 +825,170 @@ function Library:CreateWindow(Settings)
     Utility:ApplyCorner(MiniCloseButton, 5)
     Utility:ApplyStroke(MiniCloseButton, "Border", 1)
 
+    function Window:Confirm(config)
+        config = config or {}
+        if self.IsDestroyed then
+            return false
+        end
+
+        local timeout = ClampNumber(config.Timeout or 10, 3, 60)
+        local title = tostring(config.Title or "Confirmation")
+        local content = tostring(config.Content or "Continue?")
+        local confirmText = tostring(config.ConfirmText or "Yes")
+        local cancelText = tostring(config.CancelText or "No")
+
+        if self.IsMinimized or self.IsHidden then
+            self:Restore(true)
+        end
+        MainFrame.Visible = true
+
+        local overlay = Utility:Create("Frame", {
+            Name = "CenterConfirmOverlay",
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 2600,
+            Parent = MainFrame
+        })
+        Utility:ApplyCorner(overlay, 8)
+
+        local card = Utility:Create("Frame", {
+            Size = UDim2.fromOffset(390, 180),
+            Position = UDim2.new(0.5, -195, 0.5, -90),
+            Theme = { BackgroundColor3 = "Panel" },
+            BackgroundTransparency = 1,
+            ZIndex = 2601,
+            Parent = overlay
+        })
+        Utility:ApplyCorner(card, 8)
+        Utility:ApplyStroke(card, "Border", 1)
+        Utility:AddShadow(card, 0.5)
+
+        Utility:Create("TextLabel", {
+            Size = UDim2.new(1, -36, 0, 22),
+            Position = UDim2.new(0, 18, 0, 18),
+            BackgroundTransparency = 1,
+            Text = title,
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Theme = { TextColor3 = "Text" },
+            ZIndex = 2602,
+            Parent = card
+        })
+
+        Utility:Create("TextLabel", {
+            Size = UDim2.new(1, -36, 0, 48),
+            Position = UDim2.new(0, 18, 0, 48),
+            BackgroundTransparency = 1,
+            Text = content,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            Theme = { TextColor3 = "TextDark" },
+            ZIndex = 2602,
+            Parent = card
+        })
+
+        local barBack = Utility:Create("Frame", {
+            Size = UDim2.new(1, -36, 0, 5),
+            Position = UDim2.new(0, 18, 1, -62),
+            Theme = { BackgroundColor3 = "Background" },
+            ZIndex = 2602,
+            Parent = card
+        })
+        Utility:ApplyCorner(barBack, 4)
+
+        local barFill = Utility:Create("Frame", {
+            Size = UDim2.new(1, 0, 1, 0),
+            Theme = { BackgroundColor3 = "Accent" },
+            ZIndex = 2603,
+            Parent = barBack
+        })
+        Utility:ApplyCorner(barFill, 4)
+
+        local buttonRow = Utility:Create("Frame", {
+            Size = UDim2.new(1, -36, 0, 34),
+            Position = UDim2.new(0, 18, 1, -46),
+            BackgroundTransparency = 1,
+            ZIndex = 2602,
+            Parent = card
+        })
+        Utility:Create("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Right,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Padding = UDim.new(0, 8),
+            Parent = buttonRow
+        })
+
+        local noButton = Utility:Create("TextButton", {
+            Size = UDim2.fromOffset(100, 30),
+            Text = cancelText,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            AutoButtonColor = false,
+            Theme = { BackgroundColor3 = "Background", TextColor3 = "TextDark" },
+            ZIndex = 2603,
+            Parent = buttonRow
+        })
+        Utility:ApplyCorner(noButton, 6)
+        Utility:ApplyStroke(noButton, "Border", 1)
+
+        local yesButton = Utility:Create("TextButton", {
+            Size = UDim2.fromOffset(118, 30),
+            Text = confirmText,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            AutoButtonColor = false,
+            Theme = { BackgroundColor3 = "Accent", TextColor3 = "Text" },
+            ZIndex = 2603,
+            Parent = buttonRow
+        })
+        Utility:ApplyCorner(yesButton, 6)
+        Utility:ApplyStroke(yesButton, "Accent", 1)
+
+        local decided = false
+        local result = false
+        local function choose(value)
+            if decided then
+                return
+            end
+            decided = true
+            result = value == true
+        end
+
+        yesButton.MouseButton1Click:Connect(function()
+            choose(true)
+        end)
+        noButton.MouseButton1Click:Connect(function()
+            choose(false)
+        end)
+
+        Utility:Tween(overlay, { BackgroundTransparency = 0.28 }, 0.16)
+        Utility:Tween(card, { BackgroundTransparency = 0 }, 0.18)
+        Utility:Tween(barFill, { Size = UDim2.new(0, 0, 1, 0) }, timeout, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+
+        local started = os.clock()
+        while not decided and (os.clock() - started) < timeout do
+            task.wait(0.05)
+        end
+        if not decided then
+            choose(false)
+        end
+
+        Utility:Tween(card, { BackgroundTransparency = 1 }, 0.12)
+        Utility:Tween(overlay, { BackgroundTransparency = 1 }, 0.12)
+        task.wait(0.12)
+        if overlay then
+            overlay:Destroy()
+        end
+
+        return result
+    end
+
     Window.IsMinimized = false
     Window.IsHidden = false
 
