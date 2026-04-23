@@ -826,6 +826,7 @@ function Library:CreateWindow(Settings)
     Utility:ApplyStroke(MiniCloseButton, "Border", 1)
 
     Window.IsMinimized = false
+    Window.IsHidden = false
 
     function Window:Minimize(silent)
         if self.IsDestroyed or self.IsMinimized then
@@ -834,6 +835,7 @@ function Library:CreateWindow(Settings)
         self.SavedOpenSize = MainFrame.Size
         self.SavedOpenPosition = MainFrame.Position
         self.IsMinimized = true
+        self.IsHidden = false
         self.IsToggled = false
 
         local miniWidth = math.clamp(math.floor(MainFrame.Size.X.Offset * 0.45), 260, 420)
@@ -844,19 +846,13 @@ function Library:CreateWindow(Settings)
             MainFrame.Position.Y.Scale,
             MainFrame.Position.Y.Offset
         )
+        if MainFrame and MainFrame.Parent then
+            MainFrame.Visible = false
+            MainFrame.BackgroundTransparency = 0
+        end
         MiniBar.Visible = true
         MiniBar.BackgroundTransparency = 0.18
         Utility:Tween(MiniBar, { BackgroundTransparency = 0 }, 0.16)
-        Utility:Tween(MainFrame, {
-            Size = UDim2.fromOffset(math.max(300, math.floor(MainFrame.Size.X.Offset * 0.78)), 42),
-            BackgroundTransparency = 0.3
-        }, 0.16)
-        task.delay(0.16, function()
-            if MainFrame and MainFrame.Parent then
-                MainFrame.Visible = false
-                MainFrame.BackgroundTransparency = 0
-            end
-        end)
 
         if not silent then
             self:Notify({
@@ -868,10 +864,14 @@ function Library:CreateWindow(Settings)
     end
 
     function Window:Restore(silent)
-        if self.IsDestroyed or not self.IsMinimized then
+        if self.IsDestroyed then
+            return
+        end
+        if not self.IsMinimized and not self.IsHidden then
             return
         end
         self.IsMinimized = false
+        self.IsHidden = false
         self.IsToggled = true
 
         MainFrame.Visible = true
@@ -899,6 +899,34 @@ function Library:CreateWindow(Settings)
                 Title = "Window Opened",
                 Content = "UI restored. Press " .. keyToText(self.ToggleKey) .. " to hide again.",
                 Duration = 2.5
+            })
+        end
+    end
+
+    function Window:HideAll(silent)
+        if self.IsDestroyed then
+            return
+        end
+        self.SavedOpenSize = MainFrame.Size
+        self.SavedOpenPosition = MainFrame.Position
+        self.IsMinimized = false
+        self.IsHidden = true
+        self.IsToggled = false
+
+        if MainFrame and MainFrame.Parent then
+            MainFrame.Visible = false
+            MainFrame.BackgroundTransparency = 0
+        end
+        if MiniBar and MiniBar.Parent then
+            MiniBar.Visible = false
+            MiniBar.BackgroundTransparency = 0
+        end
+
+        if not silent then
+            self:Notify({
+                Title = "Script Hidden",
+                Content = "To open the script again, press " .. keyToText(self.ToggleKey) .. ".",
+                Duration = 3.2
             })
         end
     end
@@ -960,19 +988,19 @@ function Library:CreateWindow(Settings)
         if target == nil then
             target = not self.IsToggled
         end
-        if target == self.IsToggled and ((target and not self.IsMinimized) or (not target and self.IsMinimized)) then
+        if target == self.IsToggled and ((target and not self.IsMinimized and not self.IsHidden) or (not target and (self.IsMinimized or self.IsHidden))) then
             return
         end
 
         if target then
             self:Restore(silent)
         else
-            self:Minimize(silent)
+            self:HideAll(silent)
         end
     end
 
     function Window:HideWithPrompt()
-        self:ToggleVisible(false, false)
+        self:HideAll(false)
     end
 
     function Window:Destroy()
@@ -1010,13 +1038,13 @@ function Library:CreateWindow(Settings)
         Window:Minimize(false)
     end))
     track(CloseButton.MouseButton1Click:Connect(function()
-        Window:Destroy()
+        Window:HideAll(false)
     end))
     track(MiniMaxButton.MouseButton1Click:Connect(function()
         Window:Restore(false)
     end))
     track(MiniCloseButton.MouseButton1Click:Connect(function()
-        Window:Destroy()
+        Window:HideAll(false)
     end))
 
     function Window:FinishLoading()
@@ -1621,8 +1649,8 @@ function Library:CreateWindow(Settings)
             })
 
             local listFrame = Utility:Create("ScrollingFrame", {
-                Size = UDim2.new(1, -200, 0, 0),
-                Position = UDim2.new(0, 190, 1, -2),
+                Size = UDim2.fromOffset(140, 0),
+                Position = UDim2.fromOffset(0, 0),
                 ClipsDescendants = true,
                 Visible = false,
                 ScrollBarThickness = 2,
@@ -1632,7 +1660,7 @@ function Library:CreateWindow(Settings)
                     ScrollBarImageColor3 = "BorderHighlight"
                 },
                 ZIndex = 120,
-                Parent = holder
+                Parent = GUI
             })
             Utility:ApplyCorner(listFrame, 4)
             Utility:ApplyStroke(listFrame, "Border", 1)
@@ -1655,12 +1683,22 @@ function Library:CreateWindow(Settings)
             local opened = false
             local dropdownObj = { Value = default }
 
+            local function updatePopupPosition()
+                local selectorAbsPos = selectorBg.AbsolutePosition
+                local selectorAbsSize = selectorBg.AbsoluteSize
+                listFrame.Position = UDim2.fromOffset(
+                    selectorAbsPos.X,
+                    selectorAbsPos.Y + selectorAbsSize.Y + 2
+                )
+            end
+
             local function refreshHolderHeight()
                 local expected = (listLayout.AbsoluteContentSize.Y > 0 and (listLayout.AbsoluteContentSize.Y + 12))
                     or (math.max(1, #options) * 27 + 10)
                 local target = opened and math.min(180, expected) or 0
-                Utility:Tween(listFrame, { Size = UDim2.new(1, -200, 0, target) }, 0.16)
-                Utility:Tween(holder, { Size = UDim2.new(1, 0, 0, opened and (45 + target + 6) or 45) }, 0.16)
+                local width = math.max(90, selectorBg.AbsoluteSize.X)
+                updatePopupPosition()
+                Utility:Tween(listFrame, { Size = UDim2.fromOffset(width, target) }, 0.16)
             end
 
             local function setValue(v)
@@ -1724,6 +1762,7 @@ function Library:CreateWindow(Settings)
                         opened = false
                         arrow.Text = "v"
                         refreshHolderHeight()
+                        Utility:Tween(selectorStroke, { Color = ThemeManager:Get("Border") }, 0.14)
                         task.delay(0.18, function()
                             if listFrame and listFrame.Parent then
                                 listFrame.Visible = false
@@ -1731,6 +1770,7 @@ function Library:CreateWindow(Settings)
                         end)
                     end)
                 end
+                listFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 8)
                 refreshHolderHeight()
             end
 
@@ -1738,18 +1778,75 @@ function Library:CreateWindow(Settings)
                 rebuildOptions(newOptions or {})
             end
 
-            button.MouseButton1Click:Connect(function()
-                opened = not opened
-                listFrame.Visible = true
-                arrow.Text = opened and "^" or "v"
-                Utility:Tween(selectorStroke, { Color = ThemeManager:Get(opened and "Accent" or "Border") }, 0.14)
+            local function isPointInside(guiObj, position)
+                local abs = guiObj.AbsolutePosition
+                local size = guiObj.AbsoluteSize
+                return position.X >= abs.X and position.X <= (abs.X + size.X)
+                    and position.Y >= abs.Y and position.Y <= (abs.Y + size.Y)
+            end
+
+            local function closeDropdown(immediate)
+                if not opened and not listFrame.Visible then
+                    return
+                end
+                opened = false
+                arrow.Text = "v"
+                Utility:Tween(selectorStroke, { Color = ThemeManager:Get("Border") }, 0.14)
+                if immediate then
+                    listFrame.Visible = false
+                    listFrame.Size = UDim2.fromOffset(math.max(90, selectorBg.AbsoluteSize.X), 0)
+                    return
+                end
                 refreshHolderHeight()
-                if not opened then
-                    task.delay(0.18, function()
-                        if listFrame and listFrame.Parent then
-                            listFrame.Visible = false
-                        end
-                    end)
+                task.delay(0.18, function()
+                    if listFrame and listFrame.Parent and not opened then
+                        listFrame.Visible = false
+                    end
+                end)
+            end
+
+            button.MouseButton1Click:Connect(function()
+                if not MainFrame.Visible then
+                    return
+                end
+                opened = not opened
+                if opened then
+                    updatePopupPosition()
+                    listFrame.Visible = true
+                    arrow.Text = "^"
+                    Utility:Tween(selectorStroke, { Color = ThemeManager:Get("Accent") }, 0.14)
+                    refreshHolderHeight()
+                else
+                    closeDropdown(false)
+                end
+            end)
+
+            selectorBg:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                if opened and listFrame.Visible then
+                    updatePopupPosition()
+                end
+            end)
+            selectorBg:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                if opened and listFrame.Visible then
+                    refreshHolderHeight()
+                end
+            end)
+            MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+                if not MainFrame.Visible then
+                    closeDropdown(true)
+                end
+            end)
+            UserInputService.InputBegan:Connect(function(input)
+                if not opened or not listFrame.Visible then
+                    return
+                end
+                local userInputType = input.UserInputType
+                if userInputType ~= Enum.UserInputType.MouseButton1 and userInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+                local pos = input.Position
+                if not isPointInside(selectorBg, pos) and not isPointInside(listFrame, pos) then
+                    closeDropdown(false)
                 end
             end)
 
