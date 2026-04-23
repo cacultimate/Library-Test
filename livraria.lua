@@ -382,13 +382,14 @@ function Library:CreateWindow(Settings)
     local defaultSidebar = ClampNumber(Settings.SidebarWidth or 200, 160, 360)
     local defaultScale = ClampNumber(Settings.UIScale or 1, 0.7, 1.5)
     local defaultKey = NormalizeKeyCode(Settings.ToggleKey, Enum.KeyCode.K)
+    local skipLoading = Settings.SkipLoading == true
 
     SaveManager:Init(Settings.Folder)
 
     local Window = {
         Tabs = {},
         Elements = {},
-        IsLoaded = false,
+        IsLoaded = skipLoading,
         IsToggled = true,
         IsDestroyed = false,
         NotificationsEnabled = true,
@@ -427,6 +428,7 @@ function Library:CreateWindow(Settings)
     local LoadingFrame = Utility:Create("Frame", {
         Name = "LoadingOverlay",
         Size = UDim2.new(1, 0, 1, 0),
+        Visible = not skipLoading,
         ZIndex = 2000,
         Theme = { BackgroundColor3 = "Background" },
         Parent = MainFrame
@@ -437,6 +439,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 40, 0, 40),
         Position = UDim2.new(0.5, -20, 0.42, -20),
         BackgroundTransparency = 1,
+        Visible = not skipLoading,
         Image = "rbxassetid://13778704232",
         Theme = { ImageColor3 = "Accent" },
         ZIndex = 2001,
@@ -450,13 +453,14 @@ function Library:CreateWindow(Settings)
         Text = LoadingTitle,
         Font = Enum.Font.GothamBold,
         TextSize = 14,
+        Visible = not skipLoading,
         Theme = { TextColor3 = "Text" },
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 2001,
         Parent = LoadingFrame
     })
 
-    local spinning = true
+    local spinning = not skipLoading
     local spinConn = RunService.RenderStepped:Connect(function()
         if spinning and Spinner.Parent then
             Spinner.Rotation = (Spinner.Rotation + 4) % 360
