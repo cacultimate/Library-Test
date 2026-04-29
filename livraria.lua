@@ -1,6 +1,6 @@
 --[[
     CAC ULTIMATE FRAMEWORK
-    Version: 4.0 (Architect Edition)
+    Version: 4.8 (Architect Edition)
     Description: Premium modular UI framework (black-first style) with global config.
     Language: English Only
 ]]
@@ -631,7 +631,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 220, 0, 20),
         Position = UDim2.new(1, -230, 1, -25),
         BackgroundTransparency = 1,
-        Text = "CAC Ultimate | v4.4",
+        Text = "CAC Ultimate | v4.8",
         Font = Enum.Font.GothamMedium,
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Right,
