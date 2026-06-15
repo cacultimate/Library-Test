@@ -1,6 +1,6 @@
 --[[
     CAC ULTIMATE FRAMEWORK
-    Version: 4.8 (Architect Edition)
+    Version: 5.5 (Architect Edition)
     Description: Premium modular UI framework (black-first style) with global config.
     Language: English Only
 ]]
@@ -28,6 +28,15 @@ local delfile = delfile or function() end
 -- ==============================================================================
 
 local Utility = {}
+
+local Motion = {
+    Tap = 0.08,
+    Fast = 0.14,
+    Normal = 0.2,
+    Smooth = 0.28,
+    Slow = 0.36,
+    Style = Enum.EasingStyle.Quint
+}
 
 local ThemeManager = {
     Themes = {
@@ -140,7 +149,7 @@ function ThemeManager:UpdateAll()
         if instance and instance.Parent then
             for prop, key in pairs(properties) do
                 pcall(function()
-                    TweenService:Create(instance, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    TweenService:Create(instance, TweenInfo.new(Motion.Smooth, Motion.Style, Enum.EasingDirection.Out), {
                         [prop] = self:Get(key)
                     }):Play()
                 end)
@@ -176,7 +185,7 @@ function Utility:Tween(obj, props, time, style, direction)
     end
     local tween = TweenService:Create(
         obj,
-        TweenInfo.new(time or 0.22, style or Enum.EasingStyle.Quart, direction or Enum.EasingDirection.Out),
+        TweenInfo.new(time or Motion.Normal, style or Motion.Style, direction or Enum.EasingDirection.Out),
         props or {}
     )
     tween:Play()
@@ -416,9 +425,9 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Background" },
         Parent = GUI
     })
-    Utility:ApplyCorner(MainFrame, 8)
-    Utility:ApplyStroke(MainFrame, "Border", 1)
-    Utility:AddShadow(MainFrame, 0.52)
+    Utility:ApplyCorner(MainFrame, 10)
+    Utility:ApplyStroke(MainFrame, "BorderHighlight", 1)
+    Utility:AddShadow(MainFrame, 0.58)
 
     local UIScale = Utility:Create("UIScale", {
         Scale = defaultScale,
@@ -433,7 +442,7 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Background" },
         Parent = MainFrame
     })
-    Utility:ApplyCorner(LoadingFrame, 8)
+    Utility:ApplyCorner(LoadingFrame, 10)
 
     local Spinner = Utility:Create("ImageLabel", {
         Size = UDim2.new(0, 40, 0, 40),
@@ -502,7 +511,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 62,
         Parent = TopRightButtons
     })
-    Utility:ApplyCorner(MinButton, 6)
+    Utility:ApplyCorner(MinButton, 8)
     Utility:ApplyStroke(MinButton, "Border", 1)
 
     local CloseButton = Utility:Create("TextButton", {
@@ -515,7 +524,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 62,
         Parent = TopRightButtons
     })
-    Utility:ApplyCorner(CloseButton, 6)
+    Utility:ApplyCorner(CloseButton, 8)
     Utility:ApplyStroke(CloseButton, "Border", 1)
 
     local Sidebar = Utility:Create("Frame", {
@@ -524,13 +533,21 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Panel" },
         Parent = MainFrame
     })
-    Utility:ApplyCorner(Sidebar, 8)
+    Utility:ApplyCorner(Sidebar, 10)
     Utility:ApplyStroke(Sidebar, "Border", 1)
     Utility:Create("Frame", {
         Size = UDim2.new(0, 12, 1, 0),
         Position = UDim2.new(1, -12, 0, 0),
         BorderSizePixel = 0,
         Theme = { BackgroundColor3 = "Panel" },
+        Parent = Sidebar
+    })
+    Utility:Create("Frame", {
+        Size = UDim2.new(0, 1, 1, -22),
+        Position = UDim2.new(1, -1, 0, 11),
+        BorderSizePixel = 0,
+        BackgroundTransparency = 0.15,
+        Theme = { BackgroundColor3 = "BorderHighlight" },
         Parent = Sidebar
     })
 
@@ -578,7 +595,7 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Background" },
         Parent = Sidebar
     })
-    Utility:ApplyCorner(ProfileCard, 6)
+    Utility:ApplyCorner(ProfileCard, 8)
     Utility:ApplyStroke(ProfileCard, "Border", 1)
 
     local AvatarImg = Utility:Create("ImageLabel", {
@@ -631,7 +648,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 220, 0, 20),
         Position = UDim2.new(1, -230, 1, -25),
         BackgroundTransparency = 1,
-        Text = "CAC Ultimate | v4.9",
+        Text = "CAC Ultimate | v5.5",
         Font = Enum.Font.GothamMedium,
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Right,
@@ -701,7 +718,7 @@ function Library:CreateWindow(Settings)
             Theme = { BackgroundColor3 = "Panel" },
             Parent = notif
         })
-        Utility:ApplyCorner(card, 6)
+        Utility:ApplyCorner(card, 8)
         Utility:ApplyStroke(card, "Border", 1)
         Utility:AddShadow(card, 0.42)
 
@@ -742,19 +759,19 @@ function Library:CreateWindow(Settings)
         local bounds = Utility:GetTextBounds(content, Enum.Font.GothamMedium, 11, Vector2.new(230, 1000))
         local targetHeight = math.max(48, bounds.Y + 35)
 
-        Utility:Tween(notif, { Size = UDim2.new(1, 0, 0, targetHeight) }, 0.26)
-        Utility:Tween(desc, { Size = UDim2.new(1, -35, 0, bounds.Y) }, 0.26)
-        task.wait(0.08)
-        Utility:Tween(card, { Position = UDim2.new(0, 0, 0, 0) }, 0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        Utility:Tween(notif, { Size = UDim2.new(1, 0, 0, targetHeight) }, Motion.Smooth)
+        Utility:Tween(desc, { Size = UDim2.new(1, -35, 0, bounds.Y) }, Motion.Smooth)
+        task.wait(Motion.Tap)
+        Utility:Tween(card, { Position = UDim2.new(0, 0, 0, 0) }, Motion.Slow, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
         task.delay(duration, function()
             if not notif or not notif.Parent then
                 return
             end
-            Utility:Tween(card, { Position = UDim2.new(1, 20, 0, 0) }, 0.24)
-            task.wait(0.24)
-            Utility:Tween(notif, { Size = UDim2.new(1, 0, 0, 0) }, 0.24)
-            task.wait(0.24)
+            Utility:Tween(card, { Position = UDim2.new(1, 20, 0, 0) }, Motion.Normal)
+            task.wait(Motion.Normal)
+            Utility:Tween(notif, { Size = UDim2.new(1, 0, 0, 0) }, Motion.Normal)
+            task.wait(Motion.Normal)
             if notif then
                 notif:Destroy()
             end
@@ -839,9 +856,9 @@ function Library:CreateWindow(Settings)
         ZIndex = 780,
         Parent = GUI
     })
-    Utility:ApplyCorner(ActionBar, 8)
-    Utility:ApplyStroke(ActionBar, "Border", 1)
-    Utility:AddShadow(ActionBar, 0.5)
+    Utility:ApplyCorner(ActionBar, 10)
+    Utility:ApplyStroke(ActionBar, "BorderHighlight", 1)
+    Utility:AddShadow(ActionBar, 0.55)
 
     local ActionBarText = Utility:Create("TextLabel", {
         Size = UDim2.new(1, -122, 1, 0),
@@ -850,6 +867,7 @@ function Library:CreateWindow(Settings)
         Text = "",
         Font = Enum.Font.GothamMedium,
         TextSize = 11,
+        TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         Theme = { TextColor3 = "Text" },
         ZIndex = 781,
@@ -868,7 +886,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 781,
         Parent = ActionBar
     })
-    Utility:ApplyCorner(ActionBarButton, 6)
+    Utility:ApplyCorner(ActionBarButton, 8)
     Utility:ApplyStroke(ActionBarButton, "Accent", 1)
 
     local actionBarCallback = nil
@@ -877,7 +895,7 @@ function Library:CreateWindow(Settings)
             return
         end
         local width = math.clamp(math.floor(MainFrame.Size.X.Offset - 44), 340, 640)
-        ActionBar.Size = UDim2.fromOffset(width, 38)
+        ActionBar.Size = UDim2.fromOffset(width, 42)
         ActionBar.Position = UDim2.new(
             MainFrame.Position.X.Scale,
             MainFrame.Position.X.Offset + math.floor((MainFrame.Size.X.Offset - width) / 2),
@@ -899,8 +917,8 @@ function Library:CreateWindow(Settings)
         ActionBar.Visible = true
         ActionBar.BackgroundTransparency = 1
         ActionBar.Position = UDim2.new(targetPosition.X.Scale, targetPosition.X.Offset, targetPosition.Y.Scale, targetPosition.Y.Offset + 8)
-        Utility:Tween(ActionBar, { BackgroundTransparency = 0 }, 0.18)
-        Utility:Tween(ActionBar, { Position = targetPosition }, 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        Utility:Tween(ActionBar, { BackgroundTransparency = 0.02 }, Motion.Fast)
+        Utility:Tween(ActionBar, { Position = targetPosition }, Motion.Normal, Motion.Style, Enum.EasingDirection.Out)
     end
 
     function Window:HideActionBar()
@@ -908,8 +926,8 @@ function Library:CreateWindow(Settings)
             return
         end
         actionBarCallback = nil
-        Utility:Tween(ActionBar, { BackgroundTransparency = 1 }, 0.14)
-        task.delay(0.15, function()
+        Utility:Tween(ActionBar, { BackgroundTransparency = 1 }, Motion.Fast)
+        task.delay(Motion.Fast, function()
             if ActionBar and ActionBar.Parent then
                 ActionBar.Visible = false
             end
@@ -1350,19 +1368,21 @@ function Library:CreateWindow(Settings)
         local Tab = { Elements = {}, Name = tostring(name or "Tab") }
 
         local Btn = Utility:Create("TextButton", {
-            Size = UDim2.new(1, -20, 0, 35),
+            Size = UDim2.new(1, -20, 0, 38),
             BackgroundTransparency = 1,
             Text = "",
+            ClipsDescendants = true,
             Parent = TabContainer
         })
 
         local BtnBg = Utility:Create("Frame", {
             Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
+            ClipsDescendants = true,
             Theme = { BackgroundColor3 = "Background" },
             Parent = Btn
         })
-        Utility:ApplyCorner(BtnBg, 6)
+        Utility:ApplyCorner(BtnBg, 8)
 
         local Icon = Utility:Create("ImageLabel", {
             Size = UDim2.new(0, 16, 0, 16),
@@ -1417,14 +1437,16 @@ function Library:CreateWindow(Settings)
 
         Btn.MouseEnter:Connect(function()
             if Window.CurrentTab ~= Tab then
-                Utility:Tween(BtnBg, { BackgroundTransparency = 0 }, 0.16)
-                Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, 0.16)
+                Utility:Tween(BtnBg, { BackgroundTransparency = 0.08 }, Motion.Fast)
+                Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, Motion.Fast)
+                Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("Text") }, Motion.Fast)
             end
         end)
         Btn.MouseLeave:Connect(function()
             if Window.CurrentTab ~= Tab then
-                Utility:Tween(BtnBg, { BackgroundTransparency = 1 }, 0.16)
-                Utility:Tween(Label, { TextColor3 = ThemeManager:Get("TextDark") }, 0.16)
+                Utility:Tween(BtnBg, { BackgroundTransparency = 1 }, Motion.Fast)
+                Utility:Tween(Label, { TextColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
+                Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
             end
         end)
 
@@ -1432,17 +1454,19 @@ function Library:CreateWindow(Settings)
             if Window.CurrentTab then
                 local old = Window.CurrentTab
                 old.Page.Visible = false
-                Utility:Tween(old.BtnBg, { BackgroundTransparency = 1 }, 0.16)
-                Utility:Tween(old.Label, { TextColor3 = ThemeManager:Get("TextDark") }, 0.16)
-                Utility:Tween(old.Icon, { ImageColor3 = ThemeManager:Get("TextDark") }, 0.16)
-                Utility:Tween(old.Indicator, { Size = UDim2.new(0, 3, 0, 0) }, 0.16)
+                Utility:Tween(old.BtnBg, { BackgroundTransparency = 1 }, Motion.Fast)
+                Utility:Tween(old.Label, { TextColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
+                Utility:Tween(old.Icon, { ImageColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
+                Utility:Tween(old.Indicator, { Size = UDim2.new(0, 3, 0, 0) }, Motion.Fast)
             end
             Window.CurrentTab = self
             Page.Visible = true
-            Utility:Tween(BtnBg, { BackgroundTransparency = 0 }, 0.16)
-            Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, 0.16)
-            Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("Accent") }, 0.16)
-            Utility:Tween(Indicator, { Size = UDim2.new(0, 3, 0, 16) }, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Page.Position = UDim2.new(0, 24, 0, 20)
+            Utility:Tween(Page, { Position = UDim2.new(0, 20, 0, 20) }, Motion.Normal)
+            Utility:Tween(BtnBg, { BackgroundTransparency = 0.02 }, Motion.Fast)
+            Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, Motion.Fast)
+            Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("Accent") }, Motion.Fast)
+            Utility:Tween(Indicator, { Size = UDim2.new(0, 3, 0, 18) }, Motion.Normal, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
 
         Btn.MouseButton1Click:Connect(function()
@@ -1496,11 +1520,21 @@ function Library:CreateWindow(Settings)
             cfg = cfg or {}
             local btnFrame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 45),
+                ClipsDescendants = true,
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(btnFrame, 6)
+            Utility:ApplyCorner(btnFrame, 8)
             local stroke = Utility:ApplyStroke(btnFrame, "Border", 1)
+
+            local accentLine = Utility:Create("Frame", {
+                Size = UDim2.new(0, 3, 1, -16),
+                Position = UDim2.new(0, 8, 0, 8),
+                BackgroundTransparency = 0.72,
+                Theme = { BackgroundColor3 = "Accent" },
+                Parent = btnFrame
+            })
+            Utility:ApplyCorner(accentLine, 2)
 
             local btn = Utility:Create("TextButton", {
                 Size = UDim2.new(1, 0, 1, 0),
@@ -1509,9 +1543,9 @@ function Library:CreateWindow(Settings)
                 Parent = btnFrame
             })
 
-            Utility:Create("TextLabel", {
-                Size = UDim2.new(1, -30, 1, 0),
-                Position = UDim2.new(0, 15, 0, 0),
+            local label = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -40, 1, 0),
+                Position = UDim2.new(0, 18, 0, 0),
                 BackgroundTransparency = 1,
                 Text = tostring(cfg.Name or "Button"),
                 Font = Enum.Font.GothamBold,
@@ -1531,25 +1565,29 @@ function Library:CreateWindow(Settings)
             })
 
             btn.MouseEnter:Connect(function()
-                Utility:Tween(btnFrame, { BackgroundColor3 = ThemeManager:Get("PanelHover") }, 0.16)
-                Utility:Tween(stroke, { Color = ThemeManager:Get("Accent") }, 0.16)
+                Utility:Tween(btnFrame, { BackgroundColor3 = ThemeManager:Get("PanelHover") }, Motion.Fast)
+                Utility:Tween(stroke, { Color = ThemeManager:Get("BorderHighlight") }, Motion.Fast)
+                Utility:Tween(accentLine, { BackgroundTransparency = 0.08 }, Motion.Fast)
+                Utility:Tween(label, { Position = UDim2.new(0, 21, 0, 0) }, Motion.Fast)
                 Utility:Tween(icon, {
                     Position = UDim2.new(1, -25, 0.5, -8),
                     ImageColor3 = ThemeManager:Get("Accent")
-                }, 0.16)
+                }, Motion.Fast)
             end)
             btn.MouseLeave:Connect(function()
-                Utility:Tween(btnFrame, { BackgroundColor3 = ThemeManager:Get("Panel") }, 0.16)
-                Utility:Tween(stroke, { Color = ThemeManager:Get("Border") }, 0.16)
+                Utility:Tween(btnFrame, { BackgroundColor3 = ThemeManager:Get("Panel") }, Motion.Fast)
+                Utility:Tween(stroke, { Color = ThemeManager:Get("Border") }, Motion.Fast)
+                Utility:Tween(accentLine, { BackgroundTransparency = 0.72 }, Motion.Fast)
+                Utility:Tween(label, { Position = UDim2.new(0, 18, 0, 0) }, Motion.Fast)
                 Utility:Tween(icon, {
                     Position = UDim2.new(1, -30, 0.5, -8),
                     ImageColor3 = ThemeManager:Get("TextDark")
-                }, 0.16)
+                }, Motion.Fast)
             end)
             btn.MouseButton1Click:Connect(function()
-                Utility:Tween(btnFrame, { Size = UDim2.new(0.985, 0, 0, 43) }, 0.08)
-                task.wait(0.08)
-                Utility:Tween(btnFrame, { Size = UDim2.new(1, 0, 0, 45) }, 0.08)
+                Utility:Tween(btnFrame, { Size = UDim2.new(0.99, 0, 0, 44) }, Motion.Tap)
+                task.wait(Motion.Tap)
+                Utility:Tween(btnFrame, { Size = UDim2.new(1, 0, 0, 45) }, Motion.Tap)
                 if cfg.Callback then
                     cfg.Callback()
                 end
@@ -1564,11 +1602,12 @@ function Library:CreateWindow(Settings)
 
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 45),
+                ClipsDescendants = true,
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(frame, 6)
-            Utility:ApplyStroke(frame, "Border", 1)
+            Utility:ApplyCorner(frame, 8)
+            local frameStroke = Utility:ApplyStroke(frame, "Border", 1)
 
             Utility:Create("TextLabel", {
                 Size = UDim2.new(1, -100, 1, 0),
@@ -1583,8 +1622,8 @@ function Library:CreateWindow(Settings)
             })
 
             local pill = Utility:Create("Frame", {
-                Size = UDim2.new(0, 40, 0, 20),
-                Position = UDim2.new(1, -55, 0.5, -10),
+                Size = UDim2.new(0, 44, 0, 22),
+                Position = UDim2.new(1, -60, 0.5, -11),
                 Theme = { BackgroundColor3 = default and "Accent" or "Background" },
                 Parent = frame
             })
@@ -1592,8 +1631,8 @@ function Library:CreateWindow(Settings)
             local pillStroke = Utility:ApplyStroke(pill, default and "Accent" or "Border", 1)
 
             local circle = Utility:Create("Frame", {
-                Size = UDim2.new(0, 14, 0, 14),
-                Position = UDim2.new(0, default and 23 or 3, 0.5, -7),
+                Size = UDim2.new(0, 16, 0, 16),
+                Position = UDim2.new(0, default and 25 or 3, 0.5, -8),
                 Theme = { BackgroundColor3 = default and "Background" or "TextDark" },
                 Parent = pill
             })
@@ -1613,13 +1652,21 @@ function Library:CreateWindow(Settings)
                 Utility:Tween(pill, { BackgroundColor3 = ThemeManager:Get(self.Value and "Accent" or "Background") }, 0.16)
                 Utility:Tween(pillStroke, { Color = ThemeManager:Get(self.Value and "Accent" or "Border") }, 0.16)
                 Utility:Tween(circle, {
-                    Position = UDim2.new(0, self.Value and 23 or 3, 0.5, -7),
+                    Position = UDim2.new(0, self.Value and 25 or 3, 0.5, -8),
                     BackgroundColor3 = ThemeManager:Get(self.Value and "Background" or "TextDark")
-                }, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                }, Motion.Normal, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
                 if cfg.Callback then
                     cfg.Callback(self.Value)
                 end
             end
+            button.MouseEnter:Connect(function()
+                Utility:Tween(frame, { BackgroundColor3 = ThemeManager:Get("PanelHover") }, Motion.Fast)
+                Utility:Tween(frameStroke, { Color = ThemeManager:Get("BorderHighlight") }, Motion.Fast)
+            end)
+            button.MouseLeave:Connect(function()
+                Utility:Tween(frame, { BackgroundColor3 = ThemeManager:Get("Panel") }, Motion.Fast)
+                Utility:Tween(frameStroke, { Color = ThemeManager:Get("Border") }, Motion.Fast)
+            end)
             button.MouseButton1Click:Connect(function()
                 obj:SetValue(not obj.Value)
             end)
@@ -2229,14 +2276,23 @@ function Library:CreateWindow(Settings)
             local height = math.max(56, Utility:GetTextBounds(content, Enum.Font.Gotham, 11, Vector2.new(800, 1000)).Y + 34)
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, height),
+                ClipsDescendants = true,
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(frame, 6)
+            Utility:ApplyCorner(frame, 8)
             Utility:ApplyStroke(frame, "Border", 1)
+            local accentLine = Utility:Create("Frame", {
+                Size = UDim2.new(0, 3, 1, -18),
+                Position = UDim2.new(0, 8, 0, 9),
+                BackgroundTransparency = 0.64,
+                Theme = { BackgroundColor3 = "Accent" },
+                Parent = frame
+            })
+            Utility:ApplyCorner(accentLine, 2)
             Utility:Create("TextLabel", {
-                Size = UDim2.new(1, -20, 0, 16),
-                Position = UDim2.new(0, 10, 0, 8),
+                Size = UDim2.new(1, -28, 0, 16),
+                Position = UDim2.new(0, 18, 0, 8),
                 BackgroundTransparency = 1,
                 Text = title,
                 Font = Enum.Font.GothamBold,
@@ -2246,8 +2302,8 @@ function Library:CreateWindow(Settings)
                 Parent = frame
             })
             Utility:Create("TextLabel", {
-                Size = UDim2.new(1, -20, 1, -30),
-                Position = UDim2.new(0, 10, 0, 24),
+                Size = UDim2.new(1, -28, 1, -30),
+                Position = UDim2.new(0, 18, 0, 24),
                 BackgroundTransparency = 1,
                 Text = content,
                 Font = Enum.Font.Gotham,
@@ -2293,15 +2349,25 @@ function Library:CreateWindow(Settings)
 
             for _, stat in ipairs(list) do
                 local card = Utility:Create("Frame", {
+                    ClipsDescendants = true,
                     Theme = { BackgroundColor3 = "Panel" },
                     Parent = container
                 })
                 Utility:ApplyCorner(card, 8)
-                Utility:ApplyStroke(card, "Border", 1)
+                local cardStroke = Utility:ApplyStroke(card, "Border", 1)
+
+                local accentLine = Utility:Create("Frame", {
+                    Size = UDim2.new(0, 3, 1, -18),
+                    Position = UDim2.new(0, 8, 0, 9),
+                    BackgroundTransparency = 0.72,
+                    Theme = { BackgroundColor3 = "Accent" },
+                    Parent = card
+                })
+                Utility:ApplyCorner(accentLine, 2)
 
                 Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -20, 0, 16),
-                    Position = UDim2.new(0, 10, 0, 8),
+                    Size = UDim2.new(1, -28, 0, 16),
+                    Position = UDim2.new(0, 18, 0, 8),
                     BackgroundTransparency = 1,
                     Text = string.upper(tostring(stat.Title or "STAT")),
                     Font = Enum.Font.GothamBold,
@@ -2312,8 +2378,8 @@ function Library:CreateWindow(Settings)
                 })
 
                 local valueLabel = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -20, 0, 30),
-                    Position = UDim2.new(0, 10, 0, 30),
+                    Size = UDim2.new(1, -28, 0, 30),
+                    Position = UDim2.new(0, 18, 0, 30),
                     BackgroundTransparency = 1,
                     Text = tostring(stat.Value or "..."),
                     Font = Enum.Font.GothamBold,
@@ -2322,6 +2388,17 @@ function Library:CreateWindow(Settings)
                     Theme = { TextColor3 = "Text" },
                     Parent = card
                 })
+
+                card.MouseEnter:Connect(function()
+                    Utility:Tween(card, { BackgroundColor3 = ThemeManager:Get("PanelHover") }, Motion.Fast)
+                    Utility:Tween(cardStroke, { Color = ThemeManager:Get("BorderHighlight") }, Motion.Fast)
+                    Utility:Tween(accentLine, { BackgroundTransparency = 0.12 }, Motion.Fast)
+                end)
+                card.MouseLeave:Connect(function()
+                    Utility:Tween(card, { BackgroundColor3 = ThemeManager:Get("Panel") }, Motion.Fast)
+                    Utility:Tween(cardStroke, { Color = ThemeManager:Get("Border") }, Motion.Fast)
+                    Utility:Tween(accentLine, { BackgroundTransparency = 0.72 }, Motion.Fast)
+                end)
 
                 if stat.UpdateHook then
                     task.spawn(function()
