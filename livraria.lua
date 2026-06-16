@@ -955,6 +955,10 @@ function Library:CreateWindow(Settings)
         end
 
         local timeout = ClampNumber(config.Timeout or 10, 3, 60)
+        local timeoutResult = config.TimeoutResult
+        if timeoutResult == nil then
+            timeoutResult = config.DefaultResult
+        end
         local title = tostring(config.Title or "Confirmation")
         local content = tostring(config.Content or "Continue?")
         local confirmText = tostring(config.ConfirmText or "Yes")
@@ -1100,7 +1104,7 @@ function Library:CreateWindow(Settings)
             task.wait(0.05)
         end
         if not decided then
-            choose(false)
+            choose(timeoutResult == true)
         end
 
         Utility:Tween(card, { BackgroundTransparency = 1 }, 0.12)
