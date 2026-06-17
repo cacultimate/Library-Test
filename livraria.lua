@@ -1,6 +1,6 @@
 --[[
     CAC ULTIMATE FRAMEWORK
-    Version: 5.5 (Architect Edition)
+    Version: 6.0 (Smart Search Edition)
     Description: Premium modular UI framework (black-first style) with global config.
     Language: English Only
 ]]
@@ -41,20 +41,20 @@ local Motion = {
 local ThemeManager = {
     Themes = {
         Default = {
-            Background = Color3.fromRGB(5, 5, 5),
-            Panel = Color3.fromRGB(12, 12, 12),
-            PanelHover = Color3.fromRGB(18, 18, 18),
-            Border = Color3.fromRGB(24, 24, 24),
-            BorderHighlight = Color3.fromRGB(40, 40, 40),
-            Text = Color3.fromRGB(255, 255, 255),
-            TextDark = Color3.fromRGB(140, 140, 140),
-            TextMuted = Color3.fromRGB(80, 80, 80),
-            Accent = Color3.fromRGB(255, 255, 255),
-            Success = Color3.fromRGB(120, 255, 120),
-            Error = Color3.fromRGB(255, 90, 90),
+            Background = Color3.fromRGB(0, 0, 0),
+            Panel = Color3.fromRGB(7, 8, 11),
+            PanelHover = Color3.fromRGB(12, 15, 21),
+            Border = Color3.fromRGB(21, 25, 34),
+            BorderHighlight = Color3.fromRGB(32, 44, 68),
+            Text = Color3.fromRGB(231, 233, 234),
+            TextDark = Color3.fromRGB(121, 132, 151),
+            TextMuted = Color3.fromRGB(71, 82, 102),
+            Accent = Color3.fromRGB(15, 87, 212),
+            Success = Color3.fromRGB(0, 186, 124),
+            Error = Color3.fromRGB(244, 33, 46),
             Warning = Color3.fromRGB(255, 200, 80),
             Shadow = Color3.fromRGB(0, 0, 0),
-            AccentGlow = Color3.fromRGB(255, 255, 255)
+            AccentGlow = Color3.fromRGB(45, 119, 255)
         },
         Purple = {
             Background = Color3.fromRGB(7, 7, 10),
@@ -321,7 +321,11 @@ local SaveManager = {
     Folder = "CAC_Ultimate",
     Flags = {},
     Options = {},
-    Ignore = {}
+    Ignore = {},
+    Persistent = {},
+    Loaded = {},
+    AutoSaveName = "ui_default",
+    SaveRevision = 0
 }
 
 function SaveManager:Init(folderName)
@@ -332,17 +336,70 @@ function SaveManager:Init(folderName)
     if not isfolder(self.Folder .. "/configs") then
         makefolder(self.Folder .. "/configs")
     end
+
+    local filePath = self.Folder .. "/configs/" .. self.AutoSaveName .. ".json"
+    local ok, data = pcall(function()
+        if not isfile(filePath) then
+            return {}
+        end
+        return HttpService:JSONDecode(readfile(filePath))
+    end)
+    self.Loaded = ok and type(data) == "table" and data or {}
+end
+
+function SaveManager:IsPersistent(flag, cfg)
+    if cfg and cfg.Persist == true then
+        return true
+    end
+    return type(flag) == "string" and flag:sub(1, 6) == "__lib_"
+end
+
+function SaveManager:GetInitialValue(flag, fallback, persistent)
+    if persistent and self.Loaded[flag] ~= nil then
+        return self.Loaded[flag]
+    end
+    return fallback
+end
+
+function SaveManager:RegisterOption(flag, option, persistent)
+    self.Options[flag] = option
+    if persistent then
+        self.Persistent[flag] = true
+    end
+end
+
+function SaveManager:SetFlag(flag, value, persistent)
+    self.Flags[flag] = value
+    if persistent then
+        self.Persistent[flag] = true
+        self:QueueSave()
+    end
+end
+
+function SaveManager:QueueSave()
+    self.SaveRevision = self.SaveRevision + 1
+    local revision = self.SaveRevision
+    task.delay(0.2, function()
+        if revision ~= self.SaveRevision then
+            return
+        end
+        pcall(function()
+            self:Save(self.AutoSaveName)
+        end)
+    end)
 end
 
 function SaveManager:Save(name)
     local filePath = self.Folder .. "/configs/" .. tostring(name) .. ".json"
     local data = {}
     for flag, optionObj in pairs(self.Options) do
-        if not self.Ignore[flag] and optionObj then
+        if self.Persistent[flag] and not self.Ignore[flag] and optionObj then
             data[flag] = self.Flags[flag]
         end
     end
-    writefile(filePath, HttpService:JSONEncode(data))
+    local encoded = HttpService:JSONEncode(data)
+    writefile(filePath, encoded)
+    self.Loaded = data
 end
 
 function SaveManager:Load(name)
@@ -356,9 +413,10 @@ function SaveManager:Load(name)
     if not ok or type(data) ~= "table" then
         return false
     end
+    self.Loaded = data
     for flag, val in pairs(data) do
         local option = self.Options[flag]
-        if option and option.SetValue then
+        if self.Persistent[flag] and option and option.SetValue then
             pcall(function()
                 option:SetValue(val)
             end)
@@ -384,16 +442,27 @@ end
 function Library:CreateWindow(Settings)
     Settings = Settings or {}
 
-    local Name = Settings.Name or "CAC Ultimate"
-    local LoadingTitle = Settings.LoadingTitle or "INITIALIZING FRAMEWORK..."
-    local defaultW = ClampNumber(Settings.Width or 800, 520, 1400)
-    local defaultH = ClampNumber(Settings.Height or 500, 360, 920)
-    local defaultSidebar = ClampNumber(Settings.SidebarWidth or 200, 160, 360)
-    local defaultScale = ClampNumber(Settings.UIScale or 1, 0.7, 1.5)
-    local defaultKey = NormalizeKeyCode(Settings.ToggleKey, Enum.KeyCode.K)
-    local skipLoading = Settings.SkipLoading == true
-
     SaveManager:Init(Settings.Folder)
+
+    local Name = Settings.Name or "CAC Ultimate"
+    local LogoImage = tostring(Settings.LogoImage or "")
+    local LoadingTitle = Settings.LoadingTitle or "INITIALIZING FRAMEWORK..."
+    local savedTheme = tostring(SaveManager:GetInitialValue("__lib_theme_preset", ThemeManager.Current, true))
+    if ThemeManager.Themes[savedTheme] then
+        ThemeManager.Current = savedTheme
+    end
+    local savedAccentR = ClampNumber(SaveManager:GetInitialValue("__lib_accent_r", ThemeManager:Get("Accent").R * 255, true), 0, 255)
+    local savedAccentG = ClampNumber(SaveManager:GetInitialValue("__lib_accent_g", ThemeManager:Get("Accent").G * 255, true), 0, 255)
+    local savedAccentB = ClampNumber(SaveManager:GetInitialValue("__lib_accent_b", ThemeManager:Get("Accent").B * 255, true), 0, 255)
+    ThemeManager.Themes[ThemeManager.Current].Accent = Color3.fromRGB(savedAccentR, savedAccentG, savedAccentB)
+    ThemeManager.Themes[ThemeManager.Current].AccentGlow = ThemeManager.Themes[ThemeManager.Current].Accent:Lerp(Color3.fromRGB(255, 255, 255), 0.35)
+
+    local defaultW = ClampNumber(SaveManager:GetInitialValue("__lib_window_width", Settings.Width or 800, true), 520, 1400)
+    local defaultH = ClampNumber(SaveManager:GetInitialValue("__lib_window_height", Settings.Height or 500, true), 360, 920)
+    local defaultSidebar = ClampNumber(SaveManager:GetInitialValue("__lib_sidebar_width", Settings.SidebarWidth or 200, true), 160, 360)
+    local defaultScale = ClampNumber((tonumber(SaveManager:GetInitialValue("__lib_ui_scale", (Settings.UIScale or 1) * 100, true)) or 100) / 100, 0.7, 1.5)
+    local defaultKey = NormalizeKeyCode(SaveManager:GetInitialValue("__lib_toggle_key", Settings.ToggleKey or "K", true), Enum.KeyCode.K)
+    local skipLoading = Settings.SkipLoading == true
 
     local Window = {
         Tabs = {},
@@ -425,9 +494,8 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Background" },
         Parent = GUI
     })
-    Utility:ApplyCorner(MainFrame, 10)
+    Utility:ApplyCorner(MainFrame, 18)
     Utility:ApplyStroke(MainFrame, "BorderHighlight", 1)
-    Utility:AddShadow(MainFrame, 0.58)
 
     local UIScale = Utility:Create("UIScale", {
         Scale = defaultScale,
@@ -438,11 +506,12 @@ function Library:CreateWindow(Settings)
         Name = "LoadingOverlay",
         Size = UDim2.new(1, 0, 1, 0),
         Visible = not skipLoading,
+        ClipsDescendants = true,
         ZIndex = 2000,
         Theme = { BackgroundColor3 = "Background" },
         Parent = MainFrame
     })
-    Utility:ApplyCorner(LoadingFrame, 10)
+    Utility:ApplyCorner(LoadingFrame, 18)
 
     local Spinner = Utility:Create("ImageLabel", {
         Size = UDim2.new(0, 40, 0, 40),
@@ -511,7 +580,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 62,
         Parent = TopRightButtons
     })
-    Utility:ApplyCorner(MinButton, 8)
+    Utility:ApplyCorner(MinButton, 10)
     Utility:ApplyStroke(MinButton, "Border", 1)
 
     local CloseButton = Utility:Create("TextButton", {
@@ -524,24 +593,18 @@ function Library:CreateWindow(Settings)
         ZIndex = 62,
         Parent = TopRightButtons
     })
-    Utility:ApplyCorner(CloseButton, 8)
+    Utility:ApplyCorner(CloseButton, 10)
     Utility:ApplyStroke(CloseButton, "Border", 1)
 
     local Sidebar = Utility:Create("Frame", {
         Name = "Sidebar",
         Size = UDim2.new(0, defaultSidebar, 1, 0),
+        ClipsDescendants = true,
         Theme = { BackgroundColor3 = "Panel" },
         Parent = MainFrame
     })
-    Utility:ApplyCorner(Sidebar, 10)
+    Utility:ApplyCorner(Sidebar, 18)
     Utility:ApplyStroke(Sidebar, "Border", 1)
-    Utility:Create("Frame", {
-        Size = UDim2.new(0, 12, 1, 0),
-        Position = UDim2.new(1, -12, 0, 0),
-        BorderSizePixel = 0,
-        Theme = { BackgroundColor3 = "Panel" },
-        Parent = Sidebar
-    })
     Utility:Create("Frame", {
         Size = UDim2.new(0, 1, 1, -22),
         Position = UDim2.new(1, -1, 0, 11),
@@ -557,13 +620,39 @@ function Library:CreateWindow(Settings)
         Parent = Sidebar
     })
 
+    do
+        local logo = Utility:Create("ImageLabel", {
+            Size = UDim2.fromOffset(32, 32),
+            Position = UDim2.new(0, 15, 0, 23),
+            BackgroundTransparency = LogoImage ~= "" and 1 or 0,
+            Image = LogoImage ~= "" and LogoImage or "",
+            ScaleType = Enum.ScaleType.Fit,
+            Theme = { BackgroundColor3 = LogoImage ~= "" and "Background" or "Accent" },
+            Parent = TitleArea
+        })
+        Utility:ApplyCorner(logo, 12)
+        Utility:ApplyStroke(logo, "Border", 1)
+        if LogoImage == "" then
+            Utility:Create("TextLabel", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "CAC",
+                Font = Enum.Font.GothamBlack,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Theme = { TextColor3 = "Text" },
+                Parent = logo
+            })
+        end
+    end
+
     Utility:Create("TextLabel", {
-        Size = UDim2.new(1, -30, 0, 30),
-        Position = UDim2.new(0, 16, 0, 25),
+        Size = UDim2.new(1, -66, 0, 30),
+        Position = UDim2.new(0, 56, 0, 25),
         BackgroundTransparency = 1,
         Text = string.upper(Name),
         Font = Enum.Font.GothamBold,
-        TextSize = 16,
+        TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left,
         Theme = { TextColor3 = "Text" },
         Parent = TitleArea
@@ -595,7 +684,7 @@ function Library:CreateWindow(Settings)
         Theme = { BackgroundColor3 = "Background" },
         Parent = Sidebar
     })
-    Utility:ApplyCorner(ProfileCard, 8)
+    Utility:ApplyCorner(ProfileCard, 14)
     Utility:ApplyStroke(ProfileCard, "Border", 1)
 
     local AvatarImg = Utility:Create("ImageLabel", {
@@ -648,7 +737,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 220, 0, 20),
         Position = UDim2.new(1, -230, 1, -25),
         BackgroundTransparency = 1,
-        Text = "CAC Ultimate | v5.5",
+        Text = "CAC Ultimate | v6.0",
         Font = Enum.Font.GothamMedium,
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Right,
@@ -787,14 +876,41 @@ function Library:CreateWindow(Settings)
         ZIndex = 700,
         Parent = GUI
     })
-    Utility:ApplyCorner(MiniBar, 6)
+    Utility:ApplyCorner(MiniBar, 16)
     Utility:ApplyStroke(MiniBar, "Border", 1)
     Utility:AddShadow(MiniBar, 0.48)
     Utility:MakeDraggable(MiniBar, MiniBar)
 
+    do
+        local miniLogo = Utility:Create("ImageLabel", {
+            Size = UDim2.fromOffset(22, 22),
+            Position = UDim2.new(0, 9, 0.5, -11),
+            BackgroundTransparency = LogoImage ~= "" and 1 or 0,
+            Image = LogoImage ~= "" and LogoImage or "",
+            ScaleType = Enum.ScaleType.Fit,
+            Theme = LogoImage == "" and { BackgroundColor3 = "Accent" } or nil,
+            ZIndex = 701,
+            Parent = MiniBar
+        })
+        Utility:ApplyCorner(miniLogo, 8)
+        if LogoImage == "" then
+            Utility:Create("TextLabel", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "C",
+                Font = Enum.Font.GothamBlack,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Theme = { TextColor3 = "Text" },
+                ZIndex = 702,
+                Parent = miniLogo
+            })
+        end
+    end
+
     local MiniTitle = Utility:Create("TextLabel", {
-        Size = UDim2.new(1, -90, 1, 0),
-        Position = UDim2.new(0, 10, 0, 0),
+        Size = UDim2.new(1, -118, 1, 0),
+        Position = UDim2.new(0, 38, 0, 0),
         BackgroundTransparency = 1,
         Text = string.upper(Name),
         Font = Enum.Font.GothamBold,
@@ -830,7 +946,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 702,
         Parent = MiniButtons
     })
-    Utility:ApplyCorner(MiniMaxButton, 5)
+    Utility:ApplyCorner(MiniMaxButton, 10)
     Utility:ApplyStroke(MiniMaxButton, "Border", 1)
 
     local MiniCloseButton = Utility:Create("TextButton", {
@@ -843,7 +959,7 @@ function Library:CreateWindow(Settings)
         ZIndex = 702,
         Parent = MiniButtons
     })
-    Utility:ApplyCorner(MiniCloseButton, 5)
+    Utility:ApplyCorner(MiniCloseButton, 10)
     Utility:ApplyStroke(MiniCloseButton, "Border", 1)
 
     local ActionBar = Utility:Create("Frame", {
@@ -1129,22 +1245,35 @@ function Library:CreateWindow(Settings)
         self.IsMinimized = true
         self.IsHidden = false
         self.IsToggled = false
+        self._TransitionId = (self._TransitionId or 0) + 1
+        local transitionId = self._TransitionId
 
         local miniWidth = math.clamp(math.floor(MainFrame.Size.X.Offset * 0.45), 260, 420)
-        MiniBar.Size = UDim2.fromOffset(miniWidth, 34)
-        MiniBar.Position = UDim2.new(
+        local miniSize = UDim2.fromOffset(miniWidth, 34)
+        local miniPosition = UDim2.new(
             MainFrame.Position.X.Scale,
             MainFrame.Position.X.Offset,
             MainFrame.Position.Y.Scale,
             MainFrame.Position.Y.Offset
         )
-        if MainFrame and MainFrame.Parent then
-            MainFrame.Visible = false
-            MainFrame.BackgroundTransparency = 0
-        end
+        MiniBar.Size = miniSize
+        MiniBar.Position = miniPosition
         MiniBar.Visible = true
-        MiniBar.BackgroundTransparency = 0.18
-        Utility:Tween(MiniBar, { BackgroundTransparency = 0 }, 0.16)
+        MiniBar.BackgroundTransparency = 1
+        Utility:Tween(MainFrame, { BackgroundTransparency = 0.18 }, 0.1)
+        task.delay(0.1, function()
+            if self.IsDestroyed or self._TransitionId ~= transitionId or not self.IsMinimized then
+                return
+            end
+            if MainFrame and MainFrame.Parent then
+                MainFrame.Visible = false
+                MainFrame.BackgroundTransparency = 0
+            end
+            if MiniBar and MiniBar.Parent then
+                MiniBar.Visible = true
+                Utility:Tween(MiniBar, { BackgroundTransparency = 0 }, 0.14)
+            end
+        end)
 
         if not silent then
             self:Notify({
@@ -1162,29 +1291,40 @@ function Library:CreateWindow(Settings)
         if not self.IsMinimized and not self.IsHidden then
             return
         end
+        local wasMinimized = self.IsMinimized
         self.IsMinimized = false
         self.IsHidden = false
         self.IsToggled = true
+        self._TransitionId = (self._TransitionId or 0) + 1
 
-        MainFrame.Visible = true
-        MainFrame.Position = self.SavedOpenPosition or MainFrame.Position
-        MainFrame.Size = UDim2.fromOffset(
-            math.max(420, math.floor((self.SavedOpenSize and self.SavedOpenSize.X.Offset or defaultW) * 0.86)),
-            56
-        )
-        MainFrame.BackgroundTransparency = 0.18
-        Utility:Tween(MainFrame, {
-            Size = self.SavedOpenSize or UDim2.fromOffset(defaultW, defaultH),
-            BackgroundTransparency = 0
-        }, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        local targetPosition = self.SavedOpenPosition or MainFrame.Position
+        local targetSize = self.SavedOpenSize or UDim2.fromOffset(defaultW, defaultH)
 
-        Utility:Tween(MiniBar, { BackgroundTransparency = 1 }, 0.14)
-        task.delay(0.14, function()
-            if MiniBar and MiniBar.Parent then
-                MiniBar.Visible = false
-                MiniBar.BackgroundTransparency = 0
-            end
-        end)
+        if wasMinimized and MiniBar.Visible then
+            local miniPosition = MiniBar.Position
+            local miniSize = MiniBar.Size
+            Utility:Tween(MiniBar, { BackgroundTransparency = 1 }, 0.08)
+            MiniBar.Visible = false
+            MiniBar.BackgroundTransparency = 0
+
+            MainFrame.Visible = true
+            MainFrame.Position = miniPosition
+            MainFrame.Size = miniSize
+            MainFrame.BackgroundTransparency = 0.12
+            Utility:Tween(MainFrame, {
+                Position = targetPosition,
+                Size = targetSize,
+                BackgroundTransparency = 0
+            }, 0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        else
+            MiniBar.Visible = false
+            MiniBar.BackgroundTransparency = 0
+            MainFrame.Position = targetPosition
+            MainFrame.Size = targetSize
+            MainFrame.BackgroundTransparency = 1
+            MainFrame.Visible = true
+            Utility:Tween(MainFrame, { BackgroundTransparency = 0 }, Motion.Normal)
+        end
 
         if not silent then
             self:Notify({
@@ -1518,6 +1658,7 @@ function Library:CreateWindow(Settings)
                 Theme = { BackgroundColor3 = "Border" },
                 Parent = frame
             })
+            return { Instance = frame }
         end
 
         function Tab:CreateButton(cfg)
@@ -1528,7 +1669,7 @@ function Library:CreateWindow(Settings)
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(btnFrame, 8)
+            Utility:ApplyCorner(btnFrame, 14)
             local stroke = Utility:ApplyStroke(btnFrame, "Border", 1)
 
             local accentLine = Utility:Create("Frame", {
@@ -1554,6 +1695,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Button"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = btnFrame
@@ -1596,13 +1739,15 @@ function Library:CreateWindow(Settings)
                     cfg.Callback()
                 end
             end)
+            return { Instance = btnFrame, Button = btn }
         end
 
         function Tab:CreateToggle(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or ("Toggle_" .. tostring(#Tab.Elements + 1))
-            local default = cfg.Default == true
-            SaveManager.Flags[flag] = default
+            local persistent = SaveManager:IsPersistent(flag, cfg)
+            local default = SaveManager:GetInitialValue(flag, cfg.Default == true, persistent) == true
+            SaveManager:SetFlag(flag, default, false)
 
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 45),
@@ -1610,7 +1755,7 @@ function Library:CreateWindow(Settings)
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(frame, 8)
+            Utility:ApplyCorner(frame, 14)
             local frameStroke = Utility:ApplyStroke(frame, "Border", 1)
 
             Utility:Create("TextLabel", {
@@ -1620,6 +1765,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Toggle"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = frame
@@ -1649,10 +1796,10 @@ function Library:CreateWindow(Settings)
                 Parent = frame
             })
 
-            local obj = { Value = default }
+            local obj = { Value = default, Instance = frame }
             function obj:SetValue(val)
                 self.Value = val == true
-                SaveManager.Flags[flag] = self.Value
+                SaveManager:SetFlag(flag, self.Value, persistent)
                 Utility:Tween(pill, { BackgroundColor3 = ThemeManager:Get(self.Value and "Accent" or "Background") }, 0.16)
                 Utility:Tween(pillStroke, { Color = ThemeManager:Get(self.Value and "Accent" or "Border") }, 0.16)
                 Utility:Tween(circle, {
@@ -1675,10 +1822,8 @@ function Library:CreateWindow(Settings)
                 obj:SetValue(not obj.Value)
             end)
 
-            SaveManager.Options[flag] = obj
-            if default then
-                obj:SetValue(true)
-            end
+            SaveManager:RegisterOption(flag, obj, persistent)
+            obj:SetValue(default)
             return obj
         end
 
@@ -1688,15 +1833,16 @@ function Library:CreateWindow(Settings)
             local min = tonumber(cfg.Min) or 0
             local max = tonumber(cfg.Max) or 100
             local decimals = tonumber(cfg.Decimals) or 0
-            local default = ClampNumber(cfg.Default or min, min, max)
-            SaveManager.Flags[flag] = default
+            local persistent = SaveManager:IsPersistent(flag, cfg)
+            local default = ClampNumber(SaveManager:GetInitialValue(flag, cfg.Default or min, persistent), min, max)
+            SaveManager:SetFlag(flag, default, false)
 
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 60),
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(frame, 6)
+            Utility:ApplyCorner(frame, 14)
             Utility:ApplyStroke(frame, "Border", 1)
 
             Utility:Create("TextLabel", {
@@ -1706,6 +1852,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Slider"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = frame
@@ -1717,7 +1865,7 @@ function Library:CreateWindow(Settings)
                 Theme = { BackgroundColor3 = "Background" },
                 Parent = frame
             })
-            Utility:ApplyCorner(valueBoxBg, 4)
+            Utility:ApplyCorner(valueBoxBg, 10)
             Utility:ApplyStroke(valueBoxBg, "Border", 1)
 
             local valueBox = Utility:Create("TextBox", {
@@ -1763,7 +1911,7 @@ function Library:CreateWindow(Settings)
             })
             Utility:ApplyCorner(node, 100)
 
-            local obj = { Value = default }
+            local obj = { Value = default, Instance = frame }
 
             local function formatVal(v)
                 return string.format("%." .. tostring(decimals) .. "f", v)
@@ -1775,7 +1923,7 @@ function Library:CreateWindow(Settings)
                     value = math.floor(value + 0.5)
                 end
                 self.Value = value
-                SaveManager.Flags[flag] = value
+                SaveManager:SetFlag(flag, value, persistent)
                 valueBox.Text = formatVal(value)
                 local pct = (value - min) / (max - min)
                 Utility:Tween(fill, { Size = UDim2.new(pct, 0, 1, 0) }, 0.08)
@@ -1818,7 +1966,7 @@ function Library:CreateWindow(Settings)
                 end
             end)
 
-            SaveManager.Options[flag] = obj
+            SaveManager:RegisterOption(flag, obj, persistent)
             obj:SetValue(default)
             return obj
         end
@@ -1826,15 +1974,16 @@ function Library:CreateWindow(Settings)
         function Tab:CreateInput(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or ("Input_" .. tostring(#Tab.Elements + 1))
-            local default = tostring(cfg.Default or "")
-            SaveManager.Flags[flag] = default
+            local persistent = SaveManager:IsPersistent(flag, cfg)
+            local default = tostring(SaveManager:GetInitialValue(flag, cfg.Default or "", persistent) or "")
+            SaveManager:SetFlag(flag, default, false)
 
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 50),
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(frame, 6)
+            Utility:ApplyCorner(frame, 14)
             Utility:ApplyStroke(frame, "Border", 1)
 
             Utility:Create("TextLabel", {
@@ -1844,6 +1993,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Input"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = frame
@@ -1855,7 +2006,7 @@ function Library:CreateWindow(Settings)
                 Theme = { BackgroundColor3 = "Background" },
                 Parent = frame
             })
-            Utility:ApplyCorner(boxBg, 4)
+            Utility:ApplyCorner(boxBg, 12)
             local boxStroke = Utility:ApplyStroke(boxBg, "Border", 1)
 
             local box = Utility:Create("TextBox", {
@@ -1872,14 +2023,14 @@ function Library:CreateWindow(Settings)
                 Parent = boxBg
             })
 
-            local obj = { Value = default }
+            local obj = { Value = default, Instance = frame, TextBox = box }
             box.Focused:Connect(function()
                 Utility:Tween(boxStroke, { Color = ThemeManager:Get("Accent") }, 0.16)
             end)
             box.FocusLost:Connect(function()
                 Utility:Tween(boxStroke, { Color = ThemeManager:Get("Border") }, 0.16)
                 obj.Value = tostring(box.Text or "")
-                SaveManager.Flags[flag] = obj.Value
+                SaveManager:SetFlag(flag, obj.Value, persistent)
                 if cfg.Callback then
                     cfg.Callback(obj.Value)
                 end
@@ -1888,13 +2039,13 @@ function Library:CreateWindow(Settings)
             function obj:SetValue(v)
                 obj.Value = tostring(v or "")
                 box.Text = obj.Value
-                SaveManager.Flags[flag] = obj.Value
+                SaveManager:SetFlag(flag, obj.Value, persistent)
                 if cfg.Callback then
                     cfg.Callback(obj.Value)
                 end
             end
 
-            SaveManager.Options[flag] = obj
+            SaveManager:RegisterOption(flag, obj, persistent)
             return obj
         end
 
@@ -1902,15 +2053,16 @@ function Library:CreateWindow(Settings)
             cfg = cfg or {}
             local options = cfg.Options or {}
             local flag = cfg.Flag or cfg.Name or ("Dropdown_" .. tostring(#Tab.Elements + 1))
-            local default = tostring(cfg.Default or options[1] or "None")
-            SaveManager.Flags[flag] = default
+            local persistent = SaveManager:IsPersistent(flag, cfg)
+            local default = tostring(SaveManager:GetInitialValue(flag, cfg.Default or options[1] or "None", persistent) or "None")
+            SaveManager:SetFlag(flag, default, false)
 
             local holder = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 45),
                 Theme = { BackgroundColor3 = "Panel" },
                 Parent = Page
             })
-            Utility:ApplyCorner(holder, 6)
+            Utility:ApplyCorner(holder, 14)
             Utility:ApplyStroke(holder, "Border", 1)
 
             Utility:Create("TextLabel", {
@@ -1920,6 +2072,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Dropdown"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = holder
@@ -1932,7 +2086,7 @@ function Library:CreateWindow(Settings)
                 ZIndex = 20,
                 Parent = holder
             })
-            Utility:ApplyCorner(selectorBg, 4)
+            Utility:ApplyCorner(selectorBg, 12)
             local selectorStroke = Utility:ApplyStroke(selectorBg, "Border", 1)
 
             local button = Utility:Create("TextButton", {
@@ -2002,7 +2156,7 @@ function Library:CreateWindow(Settings)
             })
 
             local opened = false
-            local dropdownObj = { Value = default }
+            local dropdownObj = { Value = default, Instance = holder, List = listFrame }
 
             local function updatePopupPosition()
                 local selectorAbsPos = selectorBg.AbsolutePosition
@@ -2026,7 +2180,7 @@ function Library:CreateWindow(Settings)
                 local value = tostring(v or "")
                 dropdownObj.Value = value
                 valueLabel.Text = value
-                SaveManager.Flags[flag] = value
+                SaveManager:SetFlag(flag, value, persistent)
                 if cfg.Callback then
                     cfg.Callback(value)
                 end
@@ -2173,15 +2327,19 @@ function Library:CreateWindow(Settings)
 
             rebuildOptions(options)
             setValue(default)
-            SaveManager.Options[flag] = dropdownObj
+            SaveManager:RegisterOption(flag, dropdownObj, persistent)
             return dropdownObj
         end
 
         function Tab:CreateKeybind(cfg)
             cfg = cfg or {}
             local flag = cfg.Flag or cfg.Name or ("Keybind_" .. tostring(#Tab.Elements + 1))
-            local defaultKey = NormalizeKeyCode(cfg.Default or Enum.KeyCode.K, Enum.KeyCode.K)
-            SaveManager.Flags[flag] = defaultKey.Name
+            local persistent = SaveManager:IsPersistent(flag, cfg)
+            local defaultKey = NormalizeKeyCode(
+                SaveManager:GetInitialValue(flag, cfg.Default or Enum.KeyCode.K, persistent),
+                Enum.KeyCode.K
+            )
+            SaveManager:SetFlag(flag, defaultKey.Name, false)
 
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 45),
@@ -2198,6 +2356,8 @@ function Library:CreateWindow(Settings)
                 Text = tostring(cfg.Name or "Keybind"),
                 Font = Enum.Font.GothamBold,
                 TextSize = 12,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "Text" },
                 Parent = frame
@@ -2223,7 +2383,7 @@ function Library:CreateWindow(Settings)
                 local resolved = NormalizeKeyCode(newKey, obj.Value)
                 obj.Value = resolved
                 keyBtn.Text = resolved.Name
-                SaveManager.Flags[flag] = resolved.Name
+                SaveManager:SetFlag(flag, resolved.Name, persistent)
                 if cfg.Callback then
                     cfg.Callback(resolved)
                 end
@@ -2250,27 +2410,34 @@ function Library:CreateWindow(Settings)
                 end
             end))
 
-            SaveManager.Options[flag] = obj
+            SaveManager:RegisterOption(flag, obj, persistent)
             return obj
         end
 
         function Tab:CreateLabel(text)
+            local content = tostring(text or "")
             local frame = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 24),
+                AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundTransparency = 1,
                 Parent = Page
             })
-            Utility:Create("TextLabel", {
-                Size = UDim2.new(1, -8, 1, 0),
+            local label = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -8, 0, 24),
                 Position = UDim2.new(0, 8, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundTransparency = 1,
-                Text = tostring(text or ""),
+                Text = content,
                 Font = Enum.Font.Gotham,
                 TextSize = 11,
+                TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
+                TextYAlignment = Enum.TextYAlignment.Top,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Theme = { TextColor3 = "TextDark" },
                 Parent = frame
             })
+            return { Instance = frame, Label = label }
         end
 
         function Tab:CreateParagraph(cfg)
@@ -2337,7 +2504,8 @@ function Library:CreateWindow(Settings)
 
             local cols = count == 1 and 1 or 2
             local rows = math.ceil(count / cols)
-            local height = rows * 78
+            local cardHeight = 100
+            local height = rows * (cardHeight + 10)
 
             local container = Utility:Create("Frame", {
                 Size = UDim2.new(1, 0, 0, height),
@@ -2346,7 +2514,7 @@ function Library:CreateWindow(Settings)
             })
             local grid = Utility:Create("UIGridLayout", {
                 CellPadding = UDim2.new(0, 10, 0, 10),
-                CellSize = UDim2.new(1 / cols, -((cols == 1) and 0 or 5), 0, 68),
+                CellSize = UDim2.new(1 / cols, -((cols == 1) and 0 or 5), 0, cardHeight),
                 Parent = container
             })
             grid.FillDirectionMaxCells = cols
@@ -2357,7 +2525,7 @@ function Library:CreateWindow(Settings)
                     Theme = { BackgroundColor3 = "Panel" },
                     Parent = container
                 })
-                Utility:ApplyCorner(card, 8)
+                Utility:ApplyCorner(card, 14)
                 local cardStroke = Utility:ApplyStroke(card, "Border", 1)
 
                 local accentLine = Utility:Create("Frame", {
@@ -2382,12 +2550,15 @@ function Library:CreateWindow(Settings)
                 })
 
                 local valueLabel = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -28, 0, 30),
-                    Position = UDim2.new(0, 18, 0, 30),
+                    Size = UDim2.new(1, -28, 1, -30),
+                    Position = UDim2.new(0, 18, 0, 28),
                     BackgroundTransparency = 1,
                     Text = tostring(stat.Value or "..."),
                     Font = Enum.Font.GothamBold,
-                    TextSize = 18,
+                    TextSize = 14,
+                    TextWrapped = true,
+                    TextTruncate = Enum.TextTruncate.None,
+                    TextYAlignment = Enum.TextYAlignment.Top,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     Theme = { TextColor3 = "Text" },
                     Parent = card
