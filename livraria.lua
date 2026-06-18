@@ -1,6 +1,6 @@
 --[[
     CAC ULTIMATE FRAMEWORK
-    Version: 6.0.3 (Legacy Builder Export Fix)
+    Version: 6.0.4 (Stable Export Restore)
     Description: Premium modular UI framework (black-first style) with global config.
     Language: English Only
 ]]
@@ -737,7 +737,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 220, 0, 20),
         Position = UDim2.new(1, -230, 1, -25),
         BackgroundTransparency = 1,
-        Text = "CAC Ultimate | v6.0.3",
+        Text = "CAC Ultimate | v6.0.4",
         Font = Enum.Font.GothamMedium,
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Right,
