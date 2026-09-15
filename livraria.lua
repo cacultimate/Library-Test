@@ -737,7 +737,7 @@ function Library:CreateWindow(Settings)
         Size = UDim2.new(0, 220, 0, 20),
         Position = UDim2.new(1, -230, 1, -25),
         BackgroundTransparency = 1,
-        Text = "CAC Ultimate | v6.0.6",
+        Text = "CAC Ultimate | v6.1.0",
         Font = Enum.Font.GothamMedium,
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Right,
@@ -1560,8 +1560,15 @@ function Library:CreateWindow(Settings)
 
         local Page = Utility:Create("ScrollingFrame", {
             Name = tostring(name or "Tab") .. "_Page",
-            Size = UDim2.new(1, -40, 1, -50),
-            Position = UDim2.new(0, 20, 0, 20),
+            -- Top offset is 46, not 20: TopRightButtons (minimize/close) sits
+            -- at Y 8-42 with ZIndex 61, well above Page's default ZIndex, so
+            -- any tab whose first element is a full-width card (e.g. a lone
+            -- CreateButton with no preceding CreateSection) rendered directly
+            -- under those buttons. 46 clears them with a 4px margin; the
+            -- height deduction grows by the same 26px so the bottom margin
+            -- is unchanged.
+            Size = UDim2.new(1, -40, 1, -76),
+            Position = UDim2.new(0, 20, 0, 46),
             BackgroundTransparency = 1,
             ScrollBarThickness = 2,
             Theme = { ScrollBarImageColor3 = "BorderHighlight" },
@@ -1605,8 +1612,8 @@ function Library:CreateWindow(Settings)
             end
             Window.CurrentTab = self
             Page.Visible = true
-            Page.Position = UDim2.new(0, 24, 0, 20)
-            Utility:Tween(Page, { Position = UDim2.new(0, 20, 0, 20) }, Motion.Normal)
+            Page.Position = UDim2.new(0, 24, 0, 46)
+            Utility:Tween(Page, { Position = UDim2.new(0, 20, 0, 46) }, Motion.Normal)
             Utility:Tween(BtnBg, { BackgroundTransparency = 0.02 }, Motion.Fast)
             Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, Motion.Fast)
             Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("Accent") }, Motion.Fast)
@@ -2590,6 +2597,147 @@ function Library:CreateWindow(Settings)
         end
 
         return Tab
+    end
+
+    -- ==========================================================================
+    -- TAB GROUP (collapsible sidebar category holding several real tabs)
+    -- ==========================================================================
+    -- Window:CreateTab makes one flat sidebar button with no concept of
+    -- nesting. A group is a second, similarly-styled button that toggles a
+    -- ChildrenHolder open/closed instead of showing a Page; each of its
+    -- sub-tabs is built by calling the REAL Window:CreateTab (so it gets a
+    -- full Page and every element-factory method unchanged) and then only
+    -- its already-exposed Tab.BtnBg (whose Parent is the tab's own button)
+    -- is reparented into the holder. Tab:Show()/hide logic never reads
+    -- Parent, only Window.CurrentTab, so this reparenting is fully safe.
+    -- ChildrenHolder lives inside TabContainer like any other row, so the
+    -- existing TabLayout AbsoluteContentSize -> CanvasSize connection above
+    -- keeps the sidebar scroll region correct automatically as it expands
+    -- or collapses - nothing about that mechanism needed to change.
+    function Window:CreateTabGroup(name, iconId)
+        local Group = { Tabs = {}, Name = tostring(name or "Group") }
+
+        local Btn = Utility:Create("TextButton", {
+            Size = UDim2.new(1, -20, 0, 38),
+            BackgroundTransparency = 1,
+            Text = "",
+            ClipsDescendants = true,
+            Parent = TabContainer
+        })
+
+        local BtnBg = Utility:Create("Frame", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Theme = { BackgroundColor3 = "Background" },
+            Parent = Btn
+        })
+        Utility:ApplyCorner(BtnBg, 8)
+
+        local Icon = Utility:Create("ImageLabel", {
+            Size = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(0, 15, 0.5, -8),
+            BackgroundTransparency = 1,
+            Image = iconId or "rbxassetid://10888331510",
+            Theme = { ImageColor3 = "TextDark" },
+            Parent = BtnBg
+        })
+
+        local Label = Utility:Create("TextLabel", {
+            Size = UDim2.new(1, -70, 1, 0),
+            Position = UDim2.new(0, 40, 0, 0),
+            BackgroundTransparency = 1,
+            Text = tostring(name or "Group"),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Theme = { TextColor3 = "TextDark" },
+            Parent = BtnBg
+        })
+
+        -- Default open (opened = true below) so the group's own header does
+        -- not itself flip on first render.
+        local Chevron = Utility:Create("TextLabel", {
+            Size = UDim2.new(0, 20, 1, 0),
+            Position = UDim2.new(1, -28, 0, 0),
+            Rotation = 180,
+            BackgroundTransparency = 1,
+            Text = "v",
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Theme = { TextColor3 = "TextDark" },
+            Parent = BtnBg
+        })
+
+        local ChildrenHolder = Utility:Create("Frame", {
+            Size = UDim2.new(1, -20, 0, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Parent = TabContainer
+        })
+        local ChildrenLayout = Utility:Create("UIListLayout", {
+            Padding = UDim.new(0, 3),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = ChildrenHolder
+        })
+
+        -- Starts expanded: nothing is hidden behind an undiscovered chevron
+        -- the first time someone opens the tool. Click the header to
+        -- collapse it, exactly like any other category.
+        local opened = true
+
+        local function refreshHeight()
+            local target = opened and (ChildrenLayout.AbsoluteContentSize.Y + 3) or 0
+            Utility:Tween(ChildrenHolder, { Size = UDim2.new(1, -20, 0, target) }, 0.16)
+            Utility:Tween(Chevron, { Rotation = opened and 180 or 0 }, Motion.Fast)
+        end
+
+        ChildrenLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if opened then
+                refreshHeight()
+            end
+        end)
+
+        Btn.MouseEnter:Connect(function()
+            Utility:Tween(BtnBg, { BackgroundTransparency = 0.08 }, Motion.Fast)
+            Utility:Tween(Label, { TextColor3 = ThemeManager:Get("Text") }, Motion.Fast)
+            Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("Text") }, Motion.Fast)
+        end)
+        Btn.MouseLeave:Connect(function()
+            Utility:Tween(BtnBg, { BackgroundTransparency = 1 }, Motion.Fast)
+            Utility:Tween(Label, { TextColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
+            Utility:Tween(Icon, { ImageColor3 = ThemeManager:Get("TextDark") }, Motion.Fast)
+        end)
+
+        Btn.MouseButton1Click:Connect(function()
+            opened = not opened
+            refreshHeight()
+        end)
+
+        -- Builds a fully normal Tab (own Page, own full element factory) via
+        -- the real Window:CreateTab, then visually nests its button under
+        -- this group instead of leaving it as a flat TabContainer sibling.
+        function Group:CreateTab(subName, subIconId)
+            local Tab = Window:CreateTab(subName, subIconId)
+
+            local SubBtn = Tab.BtnBg.Parent
+            SubBtn.Parent = ChildrenHolder
+            SubBtn.Size = UDim2.new(1, 0, 0, 32)
+
+            Tab.Icon.Position = UDim2.new(0, 27, 0.5, -7)
+            Tab.Icon.Size = UDim2.new(0, 14, 0, 14)
+            Tab.Label.Position = UDim2.new(0, 50, 0, 0)
+
+            table.insert(Group.Tabs, Tab)
+            return Tab
+        end
+
+        Group.Btn = Btn
+        Group.BtnBg = BtnBg
+        Group.ChildrenHolder = ChildrenHolder
+
+        return Group
     end
 
     local function buildDefaultConfigTab()
